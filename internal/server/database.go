@@ -39,7 +39,7 @@ func runMigrations(driver, dsn string) error {
 	case "sqlite":
 		databaseURL = fmt.Sprintf("sqlite://%s", dsn)
 	case "postgres":
-		databaseURL = dsn // предполагается, что DSN уже содержит схему
+		databaseURL = dsn
 	default:
 		return fmt.Errorf("unsupported database driver: %s", driver)
 	}
