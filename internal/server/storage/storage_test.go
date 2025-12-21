@@ -1,9 +1,11 @@
-package server
+package storage
 
 import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/models"
 	"testing"
 	"time"
 
@@ -20,7 +22,7 @@ func TestSQLStorage_UserOperations(t *testing.T) {
 	storage := NewStorage(db).(*SQLStorage)
 
 	t.Run("Создание пользователя", func(t *testing.T) {
-		user := &User{
+		user := &models.User{
 			ID:        "user123",
 			Username:  "testuser",
 			Password:  "hashedpassword",
@@ -38,7 +40,7 @@ func TestSQLStorage_UserOperations(t *testing.T) {
 	})
 
 	t.Run("Получение пользователя по имени", func(t *testing.T) {
-		expectedUser := &User{
+		expectedUser := &models.User{
 			ID:        "user123",
 			Username:  "testuser",
 			Password:  "hashedpassword",
@@ -69,7 +71,7 @@ func TestSQLStorage_UserOperations(t *testing.T) {
 		user, err := storage.GetUserByUsername(context.Background(), "nonexistent")
 		assert.Error(t, err)
 		assert.Nil(t, user)
-		assert.Equal(t, ErrNotFound, err)
+		assert.Equal(t, errors.ErrNotFound, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }
@@ -233,7 +235,7 @@ func TestSQLStorage_ErrorCases(t *testing.T) {
 
 		err := storage.StoreData(ctx, "user123", data)
 		assert.Error(t, err)
-		assert.Equal(t, ErrVersionConflict, err)
+		assert.Equal(t, errors.ErrVersionConflict, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
@@ -245,7 +247,7 @@ func TestSQLStorage_ErrorCases(t *testing.T) {
 		data, err := storage.RetrieveData(ctx, "user123", "nonexistent")
 		assert.Error(t, err)
 		assert.Nil(t, data)
-		assert.Equal(t, ErrNotFound, err)
+		assert.Equal(t, errors.ErrNotFound, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 
@@ -264,7 +266,7 @@ func TestSQLStorage_ErrorCases(t *testing.T) {
 		data, err := storage.RetrieveData(ctx, "user123", "deleted")
 		assert.Error(t, err)
 		assert.Nil(t, data)
-		assert.Equal(t, ErrDeleted, err)
+		assert.Equal(t, errors.ErrDeleted, err)
 		assert.NoError(t, mock.ExpectationsWereMet())
 	})
 }

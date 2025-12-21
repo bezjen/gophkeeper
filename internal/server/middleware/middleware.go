@@ -1,7 +1,8 @@
-package server
+package middleware
 
 import (
 	"context"
+	"github.com/bezjen/gophkeeper/internal/server/auth"
 
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -9,7 +10,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func NewAuthInterceptor(auth AuthServiceInterface) grpc.UnaryServerInterceptor {
+func NewAuthInterceptor(auth auth.AuthServiceInterface) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 
@@ -34,15 +35,15 @@ func NewAuthInterceptor(auth AuthServiceInterface) grpc.UnaryServerInterceptor {
 			return nil, status.Error(codes.Unauthenticated, "invalid token")
 		}
 
-		ctx = context.WithValue(ctx, userIDKey{}, userID)
+		ctx = context.WithValue(ctx, UserIDKey{}, userID)
 		return handler(ctx, req)
 	}
 }
 
-type userIDKey struct{}
+type UserIDKey struct{}
 
 func GetUserIDFromContext(ctx context.Context) (string, error) {
-	userID, ok := ctx.Value(userIDKey{}).(string)
+	userID, ok := ctx.Value(UserIDKey{}).(string)
 	if !ok {
 		return "", status.Error(codes.Unauthenticated, "authentication required")
 	}

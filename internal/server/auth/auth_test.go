@@ -1,7 +1,10 @@
-package server
+package auth
 
 import (
 	"context"
+	"github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/mocks"
+	"github.com/bezjen/gophkeeper/internal/server/models"
 	"github.com/golang-jwt/jwt/v4"
 	"golang.org/x/crypto/bcrypt"
 	"testing"
@@ -14,19 +17,19 @@ import (
 func TestAuthService_Register(t *testing.T) {
 	tests := []struct {
 		name          string
-		setupMock     func(*MockUserStorage)
-		req           *AuthRequest
+		setupMock     func(storage *mocks.UserStorage)
+		req           *models.AuthRequest
 		expectedError bool
 	}{
 		{
 			name: "Успешная регистрация",
-			setupMock: func(m *MockUserStorage) {
+			setupMock: func(m *mocks.UserStorage) {
 				m.On("GetUserByUsernameOrEmail", mock.Anything, "testuser", "test@example.com").
-					Return((*User)(nil), nil)
-				m.On("CreateUser", mock.Anything, mock.AnythingOfType("*server.User")).
+					Return((*models.User)(nil), nil)
+				m.On("CreateUser", mock.Anything, mock.AnythingOfType("*models.User")).
 					Return(nil)
 			},
-			req: &AuthRequest{
+			req: &models.AuthRequest{
 				Username: "testuser",
 				Password: "password123",
 				Email:    "test@example.com",
@@ -35,11 +38,11 @@ func TestAuthService_Register(t *testing.T) {
 		},
 		{
 			name: "Пользователь уже существует",
-			setupMock: func(m *MockUserStorage) {
+			setupMock: func(m *mocks.UserStorage) {
 				m.On("GetUserByUsernameOrEmail", mock.Anything, "existinguser", "existing@example.com").
-					Return(&User{ID: "123"}, nil)
+					Return(&models.User{ID: "123"}, nil)
 			},
-			req: &AuthRequest{
+			req: &models.AuthRequest{
 				Username: "existinguser",
 				Password: "password123",
 				Email:    "existing@example.com",
@@ -50,7 +53,7 @@ func TestAuthService_Register(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			mockStorage := &MockUserStorage{}
+			mockStorage := &mocks.UserStorage{}
 			tt.setupMock(mockStorage)
 
 			auth := NewAuthService("test-secret-key", mockStorage)
@@ -71,12 +74,12 @@ func TestAuthService_Register(t *testing.T) {
 }
 
 func TestAuthService_Login(t *testing.T) {
-	mockStorage := &MockUserStorage{}
+	mockStorage := &mocks.UserStorage{}
 	auth := NewAuthService("test-secret-key", mockStorage)
 
 	// Создаем пользователя для теста
 	hashedPassword, _ := bcrypt.GenerateFromPassword([]byte("correctpassword"), bcrypt.DefaultCost)
-	testUser := &User{
+	testUser := &models.User{
 		ID:       "user123",
 		Username: "testuser",
 		Password: string(hashedPassword),
@@ -86,7 +89,7 @@ func TestAuthService_Login(t *testing.T) {
 	tests := []struct {
 		name          string
 		setupMock     func()
-		req           *AuthRequest
+		req           *models.AuthRequest
 		expectedError bool
 	}{
 		{
@@ -95,7 +98,7 @@ func TestAuthService_Login(t *testing.T) {
 				mockStorage.On("GetUserByUsername", mock.Anything, "testuser").
 					Return(testUser, nil)
 			},
-			req: &AuthRequest{
+			req: &models.AuthRequest{
 				Username: "testuser",
 				Password: "correctpassword",
 			},
@@ -107,7 +110,7 @@ func TestAuthService_Login(t *testing.T) {
 				mockStorage.On("GetUserByUsername", mock.Anything, "testuser").
 					Return(testUser, nil)
 			},
-			req: &AuthRequest{
+			req: &models.AuthRequest{
 				Username: "testuser",
 				Password: "wrongpassword",
 			},
@@ -117,9 +120,9 @@ func TestAuthService_Login(t *testing.T) {
 			name: "Пользователь не найден",
 			setupMock: func() {
 				mockStorage.On("GetUserByUsername", mock.Anything, "nonexistent").
-					Return((*User)(nil), ErrNotFound)
+					Return((*models.User)(nil), errors.ErrNotFound)
 			},
-			req: &AuthRequest{
+			req: &models.AuthRequest{
 				Username: "nonexistent",
 				Password: "password",
 			},
@@ -166,7 +169,7 @@ func TestAuthService_TokenValidation(t *testing.T) {
 	t.Run("Невалидный токен", func(t *testing.T) {
 		_, err := auth.ValidateToken("invalid.token.here")
 		assert.Error(t, err)
-		assert.Equal(t, ErrInvalidToken, err)
+		assert.Equal(t, errors.ErrInvalidToken, err)
 	})
 
 	t.Run("Истекший токен", func(t *testing.T) {

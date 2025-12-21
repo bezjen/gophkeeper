@@ -1,11 +1,13 @@
-//go:generate mockery --name=UserStorage --inpackage --case=underscore
-//go:generate mockery --name=AuthServiceInterface --inpackage --case=underscore
-package server
+//go:generate mockery --name=AuthServiceInterface --output=../mocks --outpkg=mocks --case=underscore
+package auth
 
 import (
 	"context"
 	"errors"
 	"fmt"
+	errors2 "github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/models"
+	"github.com/bezjen/gophkeeper/internal/server/storage"
 	"time"
 
 	"github.com/golang-jwt/jwt/v4"
@@ -16,52 +18,27 @@ import (
 )
 
 type AuthServiceInterface interface {
-	Register(ctx context.Context, req *AuthRequest) (*AuthResponse, error)
-	Login(ctx context.Context, req *AuthRequest) (*AuthResponse, error)
+	Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
+	Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
 	GenerateToken(userID, username string) (string, error)
 	ValidateToken(tokenString string) (string, error)
 }
 
-type UserStorage interface {
-	CreateUser(ctx context.Context, user *User) error
-	GetUserByUsername(ctx context.Context, username string) (*User, error)
-	GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*User, error)
-}
-
 type AuthService struct {
 	secret  []byte
-	storage UserStorage
+	storage storage.UserStorage
 }
 
-type User struct {
-	ID        string
-	Username  string
-	Password  string
-	Email     string
-	CreatedAt time.Time
-}
-
-type AuthRequest struct {
-	Username string
-	Password string
-	Email    string
-}
-
-type AuthResponse struct {
-	UserId string
-	Token  string
-}
-
-func NewAuthService(secret string, storage UserStorage) *AuthService {
+func NewAuthService(secret string, storage storage.UserStorage) *AuthService {
 	return &AuthService{
 		secret:  []byte(secret),
 		storage: storage,
 	}
 }
 
-func (a *AuthService) Register(ctx context.Context, req *AuthRequest) (*AuthResponse, error) {
+func (a *AuthService) Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	existingUser, err := a.storage.GetUserByUsernameOrEmail(ctx, req.Username, req.Email)
-	if err != nil && !errors.Is(err, ErrNotFound) {
+	if err != nil && !errors.Is(err, errors2.ErrNotFound) {
 		return nil, status.Errorf(codes.Internal, "failed to check user existence: %v", err)
 	}
 	if existingUser != nil {
@@ -73,7 +50,7 @@ func (a *AuthService) Register(ctx context.Context, req *AuthRequest) (*AuthResp
 		return nil, status.Errorf(codes.Internal, "failed to hash password: %v", err)
 	}
 
-	user := &User{
+	user := &models.User{
 		ID:        uuid.New().String(),
 		Username:  req.Username,
 		Password:  string(hashedPassword),
@@ -90,16 +67,16 @@ func (a *AuthService) Register(ctx context.Context, req *AuthRequest) (*AuthResp
 		return nil, status.Errorf(codes.Internal, "failed to generate token: %v", err)
 	}
 
-	return &AuthResponse{
+	return &models.AuthResponse{
 		UserId: user.ID,
 		Token:  token,
 	}, nil
 }
 
-func (a *AuthService) Login(ctx context.Context, req *AuthRequest) (*AuthResponse, error) {
+func (a *AuthService) Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	user, err := a.storage.GetUserByUsername(ctx, req.Username)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, errors2.ErrNotFound) {
 			return nil, status.Error(codes.Unauthenticated, "invalid credentials")
 		}
 		return nil, status.Errorf(codes.Internal, "failed to get user: %v", err)
@@ -115,7 +92,7 @@ func (a *AuthService) Login(ctx context.Context, req *AuthRequest) (*AuthRespons
 		return nil, status.Errorf(codes.Internal, "failed to generate token: %v", err)
 	}
 
-	return &AuthResponse{
+	return &models.AuthResponse{
 		Token:  token,
 		UserId: user.ID,
 	}, nil
@@ -141,7 +118,7 @@ func (a *AuthService) ValidateToken(tokenString string) (string, error) {
 	})
 
 	if err != nil || !token.Valid {
-		return "", ErrInvalidToken
+		return "", errors2.ErrInvalidToken
 	}
 
 	claims, ok := token.Claims.(jwt.MapClaims)

@@ -1,12 +1,15 @@
-//go:generate mockery --name=DataStorage --inpackage --case=underscore
-//go:generate mockery --name=Storage --inpackage --case=underscore
-package server
+//go:generate mockery --name=UserStorage --output=../mocks --outpkg=mocks --case=underscore
+//go:generate mockery --name=DataStorage --output=../mocks --outpkg=mocks --case=underscore
+//go:generate mockery --name=Storage --output=../mocks --outpkg=mocks --case=underscore
+package storage
 
 import (
 	"context"
 	"database/sql"
 	"encoding/json"
 	"fmt"
+	"github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/models"
 	"time"
 
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
@@ -15,6 +18,12 @@ import (
 type Storage interface {
 	UserStorage
 	DataStorage
+}
+
+type UserStorage interface {
+	CreateUser(ctx context.Context, user *models.User) error
+	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+	GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*models.User, error)
 }
 
 type DataStorage interface {
@@ -34,7 +43,7 @@ func NewStorage(db *sql.DB) Storage {
 	return &SQLStorage{db: db}
 }
 
-func (s *SQLStorage) CreateUser(ctx context.Context, user *User) error {
+func (s *SQLStorage) CreateUser(ctx context.Context, user *models.User) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
@@ -48,19 +57,19 @@ func (s *SQLStorage) CreateUser(ctx context.Context, user *User) error {
 	return err
 }
 
-func (s *SQLStorage) GetUserByUsername(ctx context.Context, username string) (*User, error) {
+func (s *SQLStorage) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	query := `SELECT id, username, password, email, created_at FROM t_user WHERE username = $1`
 
-	var user User
+	var user models.User
 	err := s.db.QueryRowContext(ctx, query, username).Scan(
 		&user.ID, &user.Username, &user.Password, &user.Email, &user.CreatedAt)
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
+			return nil, errors.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -68,13 +77,13 @@ func (s *SQLStorage) GetUserByUsername(ctx context.Context, username string) (*U
 	return &user, nil
 }
 
-func (s *SQLStorage) GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*User, error) {
+func (s *SQLStorage) GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
 
 	query := `SELECT id, username, password, email, created_at FROM t_user WHERE username = $1 OR email = $2`
 
-	var user User
+	var user models.User
 	err := s.db.QueryRowContext(ctx, query, username, email).Scan(
 		&user.ID, &user.Username, &user.Password, &user.Email, &user.CreatedAt)
 
@@ -109,7 +118,7 @@ func (s *SQLStorage) StoreData(ctx context.Context, userID string, data *pb.Data
 		}
 
 		if currentVersion >= data.Version {
-			return ErrVersionConflict
+			return errors.ErrVersionConflict
 		}
 	}
 
@@ -160,13 +169,13 @@ func (s *SQLStorage) RetrieveData(ctx context.Context, userID, dataID string) (*
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, ErrNotFound
+			return nil, errors.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to retrieve data: %w", err)
 	}
 
 	if deleted {
-		return nil, ErrDeleted
+		return nil, errors.ErrDeleted
 	}
 
 	data.Deleted = deleted
@@ -203,7 +212,7 @@ func (s *SQLStorage) DeleteData(ctx context.Context, userID, dataID string) erro
 	}
 
 	if rows == 0 {
-		return ErrNotFound
+		return errors.ErrNotFound
 	}
 
 	return tx.Commit()

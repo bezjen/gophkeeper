@@ -3,10 +3,14 @@ package main
 import (
 	"flag"
 	"fmt"
+	"github.com/bezjen/gophkeeper/internal/server/auth"
+	"github.com/bezjen/gophkeeper/internal/server/database"
+	"github.com/bezjen/gophkeeper/internal/server/middleware"
+	"github.com/bezjen/gophkeeper/internal/server/service"
+	"github.com/bezjen/gophkeeper/internal/server/storage"
 	"log"
 	"net"
 
-	"github.com/bezjen/gophkeeper/internal/server"
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 
 	"google.golang.org/grpc"
@@ -18,18 +22,18 @@ func main() {
 	jwtSecret := flag.String("jwt-secret", "test-secret-key", "JWT secret key")
 	flag.Parse()
 
-	db, err := server.InitDatabase(*dbDSN)
+	db, err := database.InitDatabase(*dbDSN)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}
 	defer db.Close()
 
-	storage := server.NewStorage(db)
-	authService := server.NewAuthService(*jwtSecret, storage)
-	service := server.NewService(storage, authService)
+	storage := storage.NewStorage(db)
+	authService := auth.NewAuthService(*jwtSecret, storage)
+	service := service.NewService(storage, authService)
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(server.NewAuthInterceptor(authService)),
+		grpc.UnaryInterceptor(middleware.NewAuthInterceptor(authService)),
 	)
 
 	pb.RegisterGophKeeperServer(grpcServer, service)

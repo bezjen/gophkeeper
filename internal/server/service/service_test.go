@@ -1,8 +1,12 @@
-package server
+package service
 
 import (
 	"context"
 	"errors"
+	errors2 "github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/middleware"
+	"github.com/bezjen/gophkeeper/internal/server/mocks"
+	"github.com/bezjen/gophkeeper/internal/server/models"
 	"testing"
 	"time"
 
@@ -14,8 +18,8 @@ import (
 )
 
 func TestService_Register(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
 	req := &pb.RegisterRequest{
@@ -24,13 +28,13 @@ func TestService_Register(t *testing.T) {
 		Email:    "test@example.com",
 	}
 
-	authReq := &AuthRequest{
+	authReq := &models.AuthRequest{
 		Username: req.Username,
 		Password: req.Password,
 		Email:    req.Email,
 	}
 
-	authResp := &AuthResponse{
+	authResp := &models.AuthResponse{
 		UserId: "user123",
 		Token:  "jwt.token.here",
 	}
@@ -45,8 +49,8 @@ func TestService_Register(t *testing.T) {
 }
 
 func TestService_Login(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
 	req := &pb.LoginRequest{
@@ -54,12 +58,12 @@ func TestService_Login(t *testing.T) {
 		Password: "password123",
 	}
 
-	authReq := &AuthRequest{
+	authReq := &models.AuthRequest{
 		Username: req.Username,
 		Password: req.Password,
 	}
 
-	authResp := &AuthResponse{
+	authResp := &models.AuthResponse{
 		UserId: "user123",
 		Token:  "jwt.token.here",
 	}
@@ -75,11 +79,11 @@ func TestService_Login(t *testing.T) {
 
 func TestService_StoreData(t *testing.T) {
 	t.Run("Успешное сохранение данных", func(t *testing.T) {
-		mockAuth := &MockAuthServiceInterface{}
-		mockStorage := &MockStorage{}
+		mockAuth := &mocks.AuthServiceInterface{}
+		mockStorage := &mocks.Storage{}
 		service := NewService(mockStorage, mockAuth)
 
-		ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+		ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 		req := &pb.StoreRequest{
 			Data: &pb.DataRecord{
@@ -100,11 +104,11 @@ func TestService_StoreData(t *testing.T) {
 	})
 
 	t.Run("Сохранение с существующим ID", func(t *testing.T) {
-		mockAuth := &MockAuthServiceInterface{}
-		mockStorage := &MockStorage{}
+		mockAuth := &mocks.AuthServiceInterface{}
+		mockStorage := &mocks.Storage{}
 		service := NewService(mockStorage, mockAuth)
 
-		ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+		ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 		req := &pb.StoreRequest{
 			Data: &pb.DataRecord{
@@ -127,11 +131,11 @@ func TestService_StoreData(t *testing.T) {
 	})
 
 	t.Run("Конфликт версий", func(t *testing.T) {
-		mockAuth := &MockAuthServiceInterface{}
-		mockStorage := &MockStorage{}
+		mockAuth := &mocks.AuthServiceInterface{}
+		mockStorage := &mocks.Storage{}
 		service := NewService(mockStorage, mockAuth)
 
-		ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+		ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 		req := &pb.StoreRequest{
 			Data: &pb.DataRecord{
@@ -143,7 +147,7 @@ func TestService_StoreData(t *testing.T) {
 		// Используем более точное сопоставление аргументов
 		mockStorage.On("StoreData", mock.Anything, "user123", mock.MatchedBy(func(data *pb.DataRecord) bool {
 			return data.Id == "conflict-id" && data.Version == 3
-		})).Return(ErrVersionConflict)
+		})).Return(errors2.ErrVersionConflict)
 
 		resp, err := service.StoreData(ctx, req)
 		assert.Error(t, err)
@@ -153,8 +157,8 @@ func TestService_StoreData(t *testing.T) {
 	})
 
 	t.Run("Отсутствие аутентификации", func(t *testing.T) {
-		mockAuth := &MockAuthServiceInterface{}
-		mockStorage := &MockStorage{}
+		mockAuth := &mocks.AuthServiceInterface{}
+		mockStorage := &mocks.Storage{}
 		service := NewService(mockStorage, mockAuth)
 
 		req := &pb.StoreRequest{
@@ -170,11 +174,11 @@ func TestService_StoreData(t *testing.T) {
 }
 
 func TestService_RetrieveData(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
-	ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 	t.Run("Успешное получение данных", func(t *testing.T) {
 		req := &pb.RetrieveRequest{
@@ -202,7 +206,7 @@ func TestService_RetrieveData(t *testing.T) {
 		}
 
 		mockStorage.On("RetrieveData", mock.Anything, "user123", "nonexistent").
-			Return((*pb.DataRecord)(nil), ErrNotFound)
+			Return((*pb.DataRecord)(nil), errors2.ErrNotFound)
 
 		resp, err := service.RetrieveData(ctx, req)
 		assert.Error(t, err)
@@ -217,7 +221,7 @@ func TestService_RetrieveData(t *testing.T) {
 		}
 
 		mockStorage.On("RetrieveData", mock.Anything, "user123", "deleted").
-			Return((*pb.DataRecord)(nil), ErrDeleted)
+			Return((*pb.DataRecord)(nil), errors2.ErrDeleted)
 
 		resp, err := service.RetrieveData(ctx, req)
 		assert.Error(t, err)
@@ -228,11 +232,11 @@ func TestService_RetrieveData(t *testing.T) {
 }
 
 func TestService_DeleteData(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
-	ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 	t.Run("Успешное удаление", func(t *testing.T) {
 		req := &pb.DeleteRequest{
@@ -254,7 +258,7 @@ func TestService_DeleteData(t *testing.T) {
 		}
 
 		mockStorage.On("DeleteData", mock.Anything, "user123", "nonexistent").
-			Return(ErrNotFound)
+			Return(errors2.ErrNotFound)
 
 		resp, err := service.DeleteData(ctx, req)
 		assert.Error(t, err)
@@ -265,11 +269,11 @@ func TestService_DeleteData(t *testing.T) {
 }
 
 func TestService_ListData(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
-	ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 	t.Run("Список данных с фильтром", func(t *testing.T) {
 		req := &pb.ListRequest{
@@ -312,11 +316,11 @@ func TestService_ListData(t *testing.T) {
 }
 
 func TestService_Sync(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
-	ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+	ctx := context.WithValue(context.Background(), middleware.UserIDKey{}, "user123")
 
 	t.Run("Успешная синхронизация", func(t *testing.T) {
 		req := &pb.SyncRequest{
@@ -343,8 +347,8 @@ func TestService_Sync(t *testing.T) {
 }
 
 func TestService_Ping(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
-	mockStorage := &MockStorage{}
+	mockAuth := &mocks.AuthServiceInterface{}
+	mockStorage := &mocks.Storage{}
 	service := NewService(mockStorage, mockAuth)
 
 	t.Run("Успешный ping", func(t *testing.T) {

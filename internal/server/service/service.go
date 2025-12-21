@@ -1,8 +1,13 @@
-package server
+package service
 
 import (
 	"context"
 	"errors"
+	"github.com/bezjen/gophkeeper/internal/server/auth"
+	errors2 "github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/middleware"
+	"github.com/bezjen/gophkeeper/internal/server/models"
+	storage2 "github.com/bezjen/gophkeeper/internal/server/storage"
 	"time"
 
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
@@ -13,11 +18,11 @@ import (
 
 type Service struct {
 	pb.UnimplementedGophKeeperServer
-	storage Storage
-	auth    AuthServiceInterface
+	storage storage2.Storage
+	auth    auth.AuthServiceInterface
 }
 
-func NewService(storage Storage, auth AuthServiceInterface) *Service {
+func NewService(storage storage2.Storage, auth auth.AuthServiceInterface) *Service {
 	return &Service{
 		storage: storage,
 		auth:    auth,
@@ -25,7 +30,7 @@ func NewService(storage Storage, auth AuthServiceInterface) *Service {
 }
 
 func (s *Service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
-	authReq := &AuthRequest{
+	authReq := &models.AuthRequest{
 		Username: req.Username,
 		Password: req.Password,
 		Email:    req.Email,
@@ -43,7 +48,7 @@ func (s *Service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Re
 }
 
 func (s *Service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
-	authReq := &AuthRequest{
+	authReq := &models.AuthRequest{
 		Username: req.Username,
 		Password: req.Password,
 	}
@@ -60,7 +65,7 @@ func (s *Service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRes
 }
 
 func (s *Service) StoreData(ctx context.Context, req *pb.StoreRequest) (*pb.StoreResponse, error) {
-	userID, err := GetUserIDFromContext(ctx)
+	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -81,7 +86,7 @@ func (s *Service) StoreData(ctx context.Context, req *pb.StoreRequest) (*pb.Stor
 	}
 
 	if err := s.storage.StoreData(ctx, userID, data); err != nil {
-		if errors.Is(err, ErrVersionConflict) {
+		if errors.Is(err, errors2.ErrVersionConflict) {
 			return nil, status.Error(codes.FailedPrecondition, "version conflict")
 		}
 		return nil, status.Errorf(codes.Internal, "failed to store data: %v", err)
@@ -94,17 +99,17 @@ func (s *Service) StoreData(ctx context.Context, req *pb.StoreRequest) (*pb.Stor
 }
 
 func (s *Service) RetrieveData(ctx context.Context, req *pb.RetrieveRequest) (*pb.RetrieveResponse, error) {
-	userID, err := GetUserIDFromContext(ctx)
+	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	data, err := s.storage.RetrieveData(ctx, userID, req.Id)
 	if err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, errors2.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "data not found")
 		}
-		if errors.Is(err, ErrDeleted) {
+		if errors.Is(err, errors2.ErrDeleted) {
 			return nil, status.Error(codes.NotFound, "data was deleted")
 		}
 		return nil, status.Errorf(codes.Internal, "failed to retrieve data: %v", err)
@@ -114,13 +119,13 @@ func (s *Service) RetrieveData(ctx context.Context, req *pb.RetrieveRequest) (*p
 }
 
 func (s *Service) DeleteData(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
-	userID, err := GetUserIDFromContext(ctx)
+	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
 
 	if err := s.storage.DeleteData(ctx, userID, req.Id); err != nil {
-		if errors.Is(err, ErrNotFound) {
+		if errors.Is(err, errors2.ErrNotFound) {
 			return nil, status.Error(codes.NotFound, "data not found")
 		}
 		return nil, status.Errorf(codes.Internal, "failed to delete data: %v", err)
@@ -130,7 +135,7 @@ func (s *Service) DeleteData(ctx context.Context, req *pb.DeleteRequest) (*pb.De
 }
 
 func (s *Service) ListData(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
-	userID, err := GetUserIDFromContext(ctx)
+	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
@@ -144,7 +149,7 @@ func (s *Service) ListData(ctx context.Context, req *pb.ListRequest) (*pb.ListRe
 }
 
 func (s *Service) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
-	userID, err := GetUserIDFromContext(ctx)
+	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
 		return nil, err
 	}

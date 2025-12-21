@@ -1,7 +1,9 @@
-package server
+package middleware
 
 import (
 	"context"
+	"github.com/bezjen/gophkeeper/internal/server/errors"
+	"github.com/bezjen/gophkeeper/internal/server/mocks"
 	"testing"
 
 	"github.com/stretchr/testify/assert"
@@ -12,7 +14,7 @@ import (
 )
 
 func TestNewAuthInterceptor(t *testing.T) {
-	mockAuth := &MockAuthServiceInterface{}
+	mockAuth := &mocks.AuthServiceInterface{}
 	interceptor := NewAuthInterceptor(mockAuth)
 
 	// Тестовый handler
@@ -90,7 +92,7 @@ func TestNewAuthInterceptor(t *testing.T) {
 			},
 			setupMock: func() {
 				mockAuth.On("ValidateToken", "invalid.token").
-					Return("", ErrInvalidToken)
+					Return("", errors.ErrInvalidToken)
 			},
 			expectedError: true,
 			expectedCode:  codes.Unauthenticated,
@@ -155,7 +157,7 @@ func TestNewAuthInterceptor(t *testing.T) {
 
 func TestGetUserIDFromContext(t *testing.T) {
 	t.Run("UserID присутствует в контексте", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), userIDKey{}, "user123")
+		ctx := context.WithValue(context.Background(), UserIDKey{}, "user123")
 
 		userID, err := GetUserIDFromContext(ctx)
 		assert.NoError(t, err)
@@ -172,7 +174,7 @@ func TestGetUserIDFromContext(t *testing.T) {
 	})
 
 	t.Run("Неправильный тип UserID в контексте", func(t *testing.T) {
-		ctx := context.WithValue(context.Background(), userIDKey{}, 123) // int вместо string
+		ctx := context.WithValue(context.Background(), UserIDKey{}, 123) // int вместо string
 
 		userID, err := GetUserIDFromContext(ctx)
 		assert.Error(t, err)
