@@ -9,7 +9,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-func NewAuthInterceptor(auth *AuthService) grpc.UnaryServerInterceptor {
+func NewAuthInterceptor(auth AuthServiceInterface) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
 

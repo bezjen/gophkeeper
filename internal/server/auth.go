@@ -1,3 +1,5 @@
+//go:generate mockery --name=UserStorage --inpackage --case=underscore
+//go:generate mockery --name=AuthServiceInterface --inpackage --case=underscore
 package server
 
 import (
@@ -13,15 +15,22 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type AuthService struct {
-	secret  []byte
-	storage UserStorage
+type AuthServiceInterface interface {
+	Register(ctx context.Context, req *AuthRequest) (*AuthResponse, error)
+	Login(ctx context.Context, req *AuthRequest) (*AuthResponse, error)
+	GenerateToken(userID, username string) (string, error)
+	ValidateToken(tokenString string) (string, error)
 }
 
 type UserStorage interface {
 	CreateUser(ctx context.Context, user *User) error
 	GetUserByUsername(ctx context.Context, username string) (*User, error)
 	GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*User, error)
+}
+
+type AuthService struct {
+	secret  []byte
+	storage UserStorage
 }
 
 type User struct {

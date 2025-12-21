@@ -1,3 +1,5 @@
+//go:generate mockery --name=DataStorage --inpackage --case=underscore
+//go:generate mockery --name=Storage --inpackage --case=underscore
 package server
 
 import (

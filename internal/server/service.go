@@ -14,10 +14,10 @@ import (
 type Service struct {
 	pb.UnimplementedGophKeeperServer
 	storage Storage
-	auth    *AuthService
+	auth    AuthServiceInterface
 }
 
-func NewService(storage Storage, auth *AuthService) *Service {
+func NewService(storage Storage, auth AuthServiceInterface) *Service {
 	return &Service{
 		storage: storage,
 		auth:    auth,
