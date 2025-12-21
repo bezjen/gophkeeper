@@ -1,7 +1,7 @@
 syntax = "proto3";
 
-package gophkeeper;
-option go_package = "./proto";
+package gophkeeper.proto;
+option go_package = "gophkeeper/pkg/proto";
 
 service GophKeeper {
   rpc Register(RegisterRequest) returns (RegisterResponse);
@@ -11,6 +11,7 @@ service GophKeeper {
   rpc RetrieveData(RetrieveRequest) returns (RetrieveResponse);
   rpc DeleteData(DeleteRequest) returns (DeleteResponse);
   rpc ListData(ListRequest) returns (ListResponse);
+  rpc Ping(PingRequest) returns (PingResponse);
 }
 
 enum DataType {
@@ -99,4 +100,13 @@ message ListRequest {
 
 message ListResponse {
   repeated DataRecord items = 1;
+}
+
+message PingRequest {
+  string message = 1;
+}
+
+message PingResponse {
+  string message = 1;
+  int64 timestamp = 2;
 }
