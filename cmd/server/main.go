@@ -14,12 +14,11 @@ import (
 
 func main() {
 	port := flag.String("port", "8080", "Server port")
-	dbDriver := flag.String("db-driver", "sqlite", "Database driver (sqlite or postgres)")
 	dbDSN := flag.String("db-dsn", "gophkeeper.db", "Database DSN")
 	jwtSecret := flag.String("jwt-secret", "test-secret-key", "JWT secret key")
 	flag.Parse()
 
-	db, err := server.InitDatabase(*dbDriver, *dbDSN)
+	db, err := server.InitDatabase(*dbDSN)
 	if err != nil {
 		log.Fatalf("Failed to initialize database: %v", err)
 	}

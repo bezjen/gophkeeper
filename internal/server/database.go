@@ -7,14 +7,15 @@ import (
 	"log"
 
 	"github.com/golang-migrate/migrate/v4"
-	_ "github.com/golang-migrate/migrate/v4/database/postgres"
 	_ "github.com/golang-migrate/migrate/v4/database/sqlite"
 	_ "github.com/golang-migrate/migrate/v4/source/file"
 	_ "github.com/lib/pq"
 	_ "modernc.org/sqlite"
 )
 
-func InitDatabase(driver, dsn string) (*sql.DB, error) {
+const driver = "sqlite"
+
+func InitDatabase(dsn string) (*sql.DB, error) {
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %v", err)
@@ -24,7 +25,7 @@ func InitDatabase(driver, dsn string) (*sql.DB, error) {
 		return nil, fmt.Errorf("failed to ping database: %v", err)
 	}
 
-	if err := runMigrations(driver, dsn); err != nil {
+	if err := runMigrations(dsn); err != nil {
 		return nil, err
 	}
 
@@ -32,17 +33,8 @@ func InitDatabase(driver, dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
-func runMigrations(driver, dsn string) error {
-	var databaseURL string
-
-	switch driver {
-	case "sqlite":
-		databaseURL = fmt.Sprintf("sqlite://%s", dsn)
-	case "postgres":
-		databaseURL = dsn
-	default:
-		return fmt.Errorf("unsupported database driver: %s", driver)
-	}
+func runMigrations(dsn string) error {
+	databaseURL := fmt.Sprintf("sqlite://%s", dsn)
 
 	m, err := migrate.New("file://migrations", databaseURL)
 	if err != nil {
