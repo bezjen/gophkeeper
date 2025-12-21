@@ -6,8 +6,8 @@ import (
 	"github.com/bezjen/gophkeeper/internal/server/auth"
 	"github.com/bezjen/gophkeeper/internal/server/database"
 	"github.com/bezjen/gophkeeper/internal/server/middleware"
-	"github.com/bezjen/gophkeeper/internal/server/service"
-	"github.com/bezjen/gophkeeper/internal/server/storage"
+	serv "github.com/bezjen/gophkeeper/internal/server/service"
+	stor "github.com/bezjen/gophkeeper/internal/server/storage"
 	"log"
 	"net"
 
@@ -28,9 +28,9 @@ func main() {
 	}
 	defer db.Close()
 
-	storage := storage.NewStorage(db)
+	storage := stor.NewStorage(db)
 	authService := auth.NewAuthService(*jwtSecret, storage)
-	service := service.NewService(storage, authService)
+	service := serv.NewService(storage, authService)
 
 	grpcServer := grpc.NewServer(
 		grpc.UnaryInterceptor(middleware.NewAuthInterceptor(authService)),
