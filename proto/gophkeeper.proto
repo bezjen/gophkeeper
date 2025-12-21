@@ -1,0 +1,102 @@
+syntax = "proto3";
+
+package gophkeeper;
+option go_package = "./proto";
+
+service GophKeeper {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Sync(SyncRequest) returns (SyncResponse);
+  rpc StoreData(StoreRequest) returns (StoreResponse);
+  rpc RetrieveData(RetrieveRequest) returns (RetrieveResponse);
+  rpc DeleteData(DeleteRequest) returns (DeleteResponse);
+  rpc ListData(ListRequest) returns (ListResponse);
+}
+
+enum DataType {
+  LOGIN_PASSWORD = 0;
+  TEXT_DATA = 1;
+  BINARY_DATA = 2;
+  BANK_CARD = 3;
+}
+
+message DataRecord {
+  string id = 1;
+  DataType type = 2;
+  string name = 3;
+  bytes encrypted_data = 4;
+  map<string, string> metadata = 5;
+  int64 version = 6;
+  int64 updated_at = 7;
+  bool deleted = 8;
+}
+
+message RegisterRequest {
+  string username = 1;
+  string password = 2;
+  string email = 3;
+}
+
+message RegisterResponse {
+  string user_id = 1;
+  string token = 2;
+}
+
+message LoginRequest {
+  string username = 1;
+  string password = 2;
+}
+
+message LoginResponse {
+  string token = 1;
+  string user_id = 2;
+}
+
+message SyncRequest {
+  string token = 1;
+  repeated DataRecord local_changes = 2;
+  int64 last_sync = 3;
+}
+
+message SyncResponse {
+  repeated DataRecord server_data = 1;
+  repeated string conflicts = 2;
+  int64 current_time = 3;
+}
+
+message StoreRequest {
+  string token = 1;
+  DataRecord data = 2;
+}
+
+message StoreResponse {
+  string id = 1;
+  int64 version = 2;
+}
+
+message RetrieveRequest {
+  string token = 1;
+  string id = 2;
+}
+
+message RetrieveResponse {
+  DataRecord data = 1;
+}
+
+message DeleteRequest {
+  string token = 1;
+  string id = 2;
+}
+
+message DeleteResponse {
+  bool success = 1;
+}
+
+message ListRequest {
+  string token = 1;
+  DataType filter_type = 2;
+}
+
+message ListResponse {
+  repeated DataRecord items = 1;
+}
