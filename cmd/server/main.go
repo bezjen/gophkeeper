@@ -25,13 +25,15 @@ func main() {
 	}
 	defer db.Close()
 
-	srv := server.NewServer(db, *jwtSecret)
+	storage := server.NewStorage(db)
+	authService := server.NewAuthService(*jwtSecret, storage)
+	service := server.NewService(storage, authService)
 
 	grpcServer := grpc.NewServer(
-		grpc.UnaryInterceptor(srv.AuthInterceptor),
+		grpc.UnaryInterceptor(server.NewAuthInterceptor(authService)),
 	)
 
-	pb.RegisterGophKeeperServer(grpcServer, srv)
+	pb.RegisterGophKeeperServer(grpcServer, service)
 
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%s", *port))
 	if err != nil {
