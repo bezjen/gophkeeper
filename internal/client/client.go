@@ -108,6 +108,10 @@ func (c *Client) Login(username, password string) error {
 	c.userID = resp.UserId
 	c.crypto = NewCrypto(password, c.userID)
 
+	if err := c.saveConfig(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
 	return c.Sync()
 }
 
@@ -140,8 +144,7 @@ func (c *Client) StoreLoginPassword(name, username, password string, metadata ma
 
 	ctx := c.authContext()
 	resp, err := c.client.StoreData(ctx, &pb.StoreRequest{
-		Token: c.token,
-		Data:  record,
+		Data: record,
 	})
 	if err != nil {
 		return "", fmt.Errorf("failed to store on server: %w", err)
@@ -185,8 +188,7 @@ func (c *Client) StoreText(name, text string, metadata map[string]string) (strin
 
 	ctx := c.authContext()
 	resp, err := c.client.StoreData(ctx, &pb.StoreRequest{
-		Token: c.token,
-		Data:  record,
+		Data: record,
 	})
 	if err != nil {
 		return "", err
@@ -231,8 +233,7 @@ func (c *Client) StoreBinary(name string, data []byte, metadata map[string]strin
 
 	ctx := c.authContext()
 	resp, err := c.client.StoreData(ctx, &pb.StoreRequest{
-		Token: c.token,
-		Data:  record,
+		Data: record,
 	})
 	if err != nil {
 		return "", err
@@ -278,8 +279,7 @@ func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[str
 
 	ctx := c.authContext()
 	resp, err := c.client.StoreData(ctx, &pb.StoreRequest{
-		Token: c.token,
-		Data:  record,
+		Data: record,
 	})
 	if err != nil {
 		return "", err
@@ -300,8 +300,7 @@ func (c *Client) GetData(id string) (*DataItem, error) {
 	if err != nil {
 		ctx := c.authContext()
 		resp, err := c.client.RetrieveData(ctx, &pb.RetrieveRequest{
-			Token: c.token,
-			Id:    id,
+			Id: id,
 		})
 		if err != nil {
 			return nil, fmt.Errorf("data not found: %w", err)
@@ -404,17 +403,13 @@ func (c *Client) DeleteData(id string) error {
 
 	ctx := c.authContext()
 	_, err = c.client.DeleteData(ctx, &pb.DeleteRequest{
-		Token: c.token,
-		Id:    id,
+		Id: id,
 	})
 	return err
 }
 
 func (c *Client) Sync() error {
-	lastSync, err := c.loadLastSync()
-	if err != nil {
-		return err
-	}
+	lastSync := c.loadLastSync()
 	localChanges, err := c.localStore.GetChangedSince(lastSync)
 	if err != nil {
 		return fmt.Errorf("failed to get local changes: %w", err)
@@ -422,7 +417,6 @@ func (c *Client) Sync() error {
 
 	ctx := c.authContext()
 	resp, err := c.client.Sync(ctx, &pb.SyncRequest{
-		Token:        c.token,
 		LocalChanges: localChanges,
 		LastSync:     lastSync,
 	})
@@ -464,21 +458,26 @@ func (c *Client) saveConfig() error {
 	return os.WriteFile(configFile, data, 0600)
 }
 
-func (c *Client) loadLastSync() (int64, error) {
+func (c *Client) loadLastSync() int64 {
 	configFile := filepath.Join(c.configDir, "sync.json")
+
+	// Проверяем существование файла перед чтением
+	if _, err := os.Stat(configFile); os.IsNotExist(err) {
+		return 0 // Если файла нет, возвращаем 0
+	}
+
 	data, err := os.ReadFile(configFile)
 	if err != nil {
-		return 0, err
+		return 0
 	}
 
 	var config struct {
 		LastSync int64 `json:"last_sync"`
 	}
-	err = json.Unmarshal(data, &config)
-	if err != nil {
-		return 0, err
-	}
-	return config.LastSync, nil
+
+	// Игнорируем ошибку парсинга, если файл пустой или поврежден
+	json.Unmarshal(data, &config)
+	return config.LastSync
 }
 
 func (c *Client) saveLastSync(timestamp int64) error {
