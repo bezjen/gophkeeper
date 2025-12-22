@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/bezjen/gophkeeper/internal/client/config"
-	crypto2 "github.com/bezjen/gophkeeper/internal/client/crypto"
+	"github.com/bezjen/gophkeeper/internal/client/crypto"
 	"github.com/bezjen/gophkeeper/internal/client/filestore"
 	"github.com/bezjen/gophkeeper/internal/client/models"
 	"github.com/bezjen/gophkeeper/internal/client/protocol"
@@ -28,7 +28,7 @@ type Client struct {
 	userID     string
 	configMgr  config.ManagerInterface
 	localStore filestore.StoreInterface
-	crypto     *crypto2.Crypto
+	crypto     *crypto.Crypto
 	ServerAddr string
 }
 
@@ -95,7 +95,7 @@ func (c *Client) InitSession(password string) error {
 	if c.userID == "" {
 		return fmt.Errorf("user ID not found in config")
 	}
-	c.crypto = crypto2.NewCrypto(password, c.userID)
+	c.crypto = crypto.NewCrypto(password, c.userID)
 	return nil
 }
 
@@ -118,7 +118,7 @@ func (c *Client) Register(username, password, email string) error {
 
 	c.token = resp.Token
 	c.userID = resp.UserId
-	c.crypto = crypto2.NewCrypto(password, c.userID)
+	c.crypto = crypto.NewCrypto(password, c.userID)
 
 	return c.saveConfig()
 }
@@ -140,7 +140,7 @@ func (c *Client) Login(username, password string) error {
 
 	c.token = resp.Token
 	c.userID = resp.UserId
-	c.crypto = crypto2.NewCrypto(password, c.userID)
+	c.crypto = crypto.NewCrypto(password, c.userID)
 
 	// Save config after successful login
 	if err := c.saveConfig(); err != nil {
