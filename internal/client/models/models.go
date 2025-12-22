@@ -1,4 +1,4 @@
-package client
+package models
 
 import (
 	pb "github.com/bezjen/gophkeeper/pkg/proto"

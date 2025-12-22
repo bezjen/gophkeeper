@@ -1,7 +1,9 @@
-package client
+package cli
 
 import (
 	"fmt"
+	"github.com/bezjen/gophkeeper/internal/client"
+	"github.com/bezjen/gophkeeper/internal/client/protocol"
 	"os"
 	"path/filepath"
 	"strings"
@@ -23,7 +25,7 @@ func RegisterCommands(app *cli.App) {
 			},
 			Action: func(c *cli.Context) error {
 				serverAddr := c.String("server")
-				cl, err := NewClient(serverAddr)
+				cl, err := client.NewClient(serverAddr)
 				if err != nil {
 					return fmt.Errorf("failed to create client: %w", err)
 				}
@@ -45,7 +47,7 @@ func RegisterCommands(app *cli.App) {
 			},
 			Action: func(c *cli.Context) error {
 				serverAddr := c.String("server")
-				cl, err := NewClient(serverAddr)
+				cl, err := client.NewClient(serverAddr)
 				if err != nil {
 					return fmt.Errorf("failed to create client: %w", err)
 				}
@@ -71,7 +73,7 @@ func RegisterCommands(app *cli.App) {
 						&cli.StringSliceFlag{Name: "meta"},
 					},
 					Action: func(c *cli.Context) error {
-						cl, ok := c.App.Metadata["client"].(*Client)
+						cl, ok := c.App.Metadata["client"].(*client.Client)
 						if !ok || cl == nil {
 							return fmt.Errorf("client not initialized. Please login first")
 						}
@@ -99,7 +101,7 @@ func RegisterCommands(app *cli.App) {
 						&cli.StringSliceFlag{Name: "meta"},
 					},
 					Action: func(c *cli.Context) error {
-						cl, ok := c.App.Metadata["client"].(*Client)
+						cl, ok := c.App.Metadata["client"].(*client.Client)
 						if !ok || cl == nil {
 							return fmt.Errorf("client not initialized. Please login first")
 						}
@@ -128,7 +130,7 @@ func RegisterCommands(app *cli.App) {
 						&cli.StringSliceFlag{Name: "meta"},
 					},
 					Action: func(c *cli.Context) error {
-						cl, ok := c.App.Metadata["client"].(*Client)
+						cl, ok := c.App.Metadata["client"].(*client.Client)
 						if !ok || cl == nil {
 							return fmt.Errorf("client not initialized. Please login first")
 						}
@@ -157,7 +159,7 @@ func RegisterCommands(app *cli.App) {
 						&cli.StringFlag{Name: "meta", Usage: "Metadata (key=value,k2=v2)"},
 					},
 					Action: func(c *cli.Context) error {
-						cl, ok := c.App.Metadata["client"].(*Client)
+						cl, ok := c.App.Metadata["client"].(*client.Client)
 						if !ok || cl == nil {
 							return fmt.Errorf("client not initialized. Please login first")
 						}
@@ -195,7 +197,7 @@ func RegisterCommands(app *cli.App) {
 				&cli.StringFlag{Name: "id", Required: true},
 			},
 			Action: func(c *cli.Context) error {
-				cl, ok := c.App.Metadata["client"].(*Client)
+				cl, ok := c.App.Metadata["client"].(*client.Client)
 				if !ok || cl == nil {
 					return fmt.Errorf("client not initialized. Please login first")
 				}
@@ -226,14 +228,14 @@ func RegisterCommands(app *cli.App) {
 				&cli.StringFlag{Name: "type"},
 			},
 			Action: func(c *cli.Context) error {
-				cl, ok := c.App.Metadata["client"].(*Client)
+				cl, ok := c.App.Metadata["client"].(*client.Client)
 				if !ok || cl == nil {
 					return fmt.Errorf("client not initialized. Please login first")
 				}
 
 				var filterType pb.DataType = pb.DataType(-1)
 				if typeStr := c.String("type"); typeStr != "" {
-					proto := NewProtocol()
+					proto := protocol.NewProtocol()
 					filterType = proto.StringToDataType(typeStr)
 				}
 
@@ -255,7 +257,7 @@ func RegisterCommands(app *cli.App) {
 				&cli.StringFlag{Name: "id", Required: true},
 			},
 			Action: func(c *cli.Context) error {
-				cl, ok := c.App.Metadata["client"].(*Client)
+				cl, ok := c.App.Metadata["client"].(*client.Client)
 				if !ok || cl == nil {
 					return fmt.Errorf("client not initialized. Please login first")
 				}
@@ -267,7 +269,7 @@ func RegisterCommands(app *cli.App) {
 			Name:  "sync",
 			Usage: "Synchronize with server",
 			Action: func(c *cli.Context) error {
-				cl, ok := c.App.Metadata["client"].(*Client)
+				cl, ok := c.App.Metadata["client"].(*client.Client)
 				if !ok || cl == nil {
 					return fmt.Errorf("client not initialized. Please login first")
 				}

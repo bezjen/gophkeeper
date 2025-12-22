@@ -1,8 +1,10 @@
-package client
+package protocol
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/bezjen/gophkeeper/internal/client/crypto"
+	"github.com/bezjen/gophkeeper/internal/client/models"
 	"strings"
 	"time"
 
@@ -30,18 +32,18 @@ func (p *Protocol) StringToDataType(s string) pb.DataType {
 	}
 }
 
-func (p *Protocol) EncryptData(crypto *Crypto, content interface{}) ([]byte, error) {
+func (p *Protocol) EncryptData(crypto *crypto.Crypto, content interface{}) ([]byte, error) {
 	var jsonData []byte
 	var err error
 
 	switch dt := content.(type) {
-	case *LoginPassword:
+	case *models.LoginPassword:
 		jsonData, err = json.Marshal(dt)
-	case *BankCard:
+	case *models.BankCard:
 		jsonData, err = json.Marshal(dt)
-	case *TextData:
+	case *models.TextData:
 		jsonData, err = json.Marshal(dt)
-	case *BinaryData:
+	case *models.BinaryData:
 		jsonData, err = json.Marshal(dt)
 	case string:
 		jsonData = []byte(dt)
@@ -58,7 +60,7 @@ func (p *Protocol) EncryptData(crypto *Crypto, content interface{}) ([]byte, err
 	return crypto.Encrypt(jsonData)
 }
 
-func (p *Protocol) DecryptData(crypto *Crypto, dataType pb.DataType, encrypted []byte, target interface{}) error {
+func (p *Protocol) DecryptData(crypto *crypto.Crypto, dataType pb.DataType, encrypted []byte, target interface{}) error {
 	decrypted, err := crypto.Decrypt(encrypted)
 	if err != nil {
 		return fmt.Errorf("failed to decrypt data: %w", err)
@@ -66,30 +68,30 @@ func (p *Protocol) DecryptData(crypto *Crypto, dataType pb.DataType, encrypted [
 
 	switch dataType {
 	case pb.DataType_LOGIN_PASSWORD:
-		var lp LoginPassword
+		var lp models.LoginPassword
 		if err := json.Unmarshal(decrypted, &lp); err != nil {
 			return fmt.Errorf("failed to unmarshal login data: %w", err)
 		}
-		*target.(*LoginPassword) = lp
+		*target.(*models.LoginPassword) = lp
 	case pb.DataType_BANK_CARD:
-		var bc BankCard
+		var bc models.BankCard
 		if err := json.Unmarshal(decrypted, &bc); err != nil {
 			return fmt.Errorf("failed to unmarshal card data: %w", err)
 		}
-		*target.(*BankCard) = bc
+		*target.(*models.BankCard) = bc
 	case pb.DataType_TEXT_DATA:
-		var td TextData
+		var td models.TextData
 		if err := json.Unmarshal(decrypted, &td); err != nil {
 			td.Text = string(decrypted)
 		}
-		*target.(*TextData) = td
+		*target.(*models.TextData) = td
 	case pb.DataType_BINARY_DATA:
-		var bd BinaryData
+		var bd models.BinaryData
 		if err := json.Unmarshal(decrypted, &bd); err != nil {
 			bd.Data = decrypted
 			bd.Size = int64(len(decrypted))
 		}
-		*target.(*BinaryData) = bd
+		*target.(*models.BinaryData) = bd
 	default:
 		return fmt.Errorf("unknown data type: %v", dataType)
 	}
@@ -103,7 +105,7 @@ func (p *Protocol) CreateDataRecord(
 	name string,
 	content interface{},
 	metadata map[string]string,
-	crypto *Crypto,
+	crypto *crypto.Crypto,
 ) (*pb.DataRecord, error) {
 	if metadata == nil {
 		metadata = make(map[string]string)

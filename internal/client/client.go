@@ -4,6 +4,10 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	crypto2 "github.com/bezjen/gophkeeper/internal/client/crypto"
+	"github.com/bezjen/gophkeeper/internal/client/filestore"
+	"github.com/bezjen/gophkeeper/internal/client/models"
+	"github.com/bezjen/gophkeeper/internal/client/protocol"
 	"os"
 	"path/filepath"
 	"time"
@@ -24,8 +28,8 @@ type Client struct {
 	token      string
 	userID     string
 	configDir  string
-	localStore *FileStore
-	crypto     *Crypto
+	localStore *filestore.FileStore
+	crypto     *crypto2.Crypto
 	ServerAddr string
 }
 
@@ -37,7 +41,7 @@ func NewClient(serverAddr string) (*Client, error) {
 
 	// Create local storage
 	storeDir := filepath.Join(configDir, "data")
-	localStore, err := NewFileStore(storeDir)
+	localStore, err := filestore.NewFileStore(storeDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local storage: %w", err)
 	}
@@ -86,7 +90,7 @@ func (c *Client) InitSession(password string) error {
 	if c.userID == "" {
 		return fmt.Errorf("user ID not found in config")
 	}
-	c.crypto = NewCrypto(password, c.userID)
+	c.crypto = crypto2.NewCrypto(password, c.userID)
 	return nil
 }
 
@@ -109,7 +113,7 @@ func (c *Client) Register(username, password, email string) error {
 
 	c.token = resp.Token
 	c.userID = resp.UserId
-	c.crypto = NewCrypto(password, c.userID)
+	c.crypto = crypto2.NewCrypto(password, c.userID)
 
 	return c.saveConfig()
 }
@@ -131,7 +135,7 @@ func (c *Client) Login(username, password string) error {
 
 	c.token = resp.Token
 	c.userID = resp.UserId
-	c.crypto = NewCrypto(password, c.userID)
+	c.crypto = crypto2.NewCrypto(password, c.userID)
 
 	// Save config after successful login
 	if err := c.saveConfig(); err != nil {
@@ -147,8 +151,8 @@ func (c *Client) StoreLoginPassword(name, username, password string, metadata ma
 		return "", fmt.Errorf("not authenticated")
 	}
 
-	proto := NewProtocol()
-	loginData := &LoginPassword{
+	proto := protocol.NewProtocol()
+	loginData := &models.LoginPassword{
 		Username: username,
 		Password: password,
 	}
@@ -191,8 +195,8 @@ func (c *Client) StoreText(name, text string, metadata map[string]string) (strin
 		return "", fmt.Errorf("not authenticated")
 	}
 
-	proto := NewProtocol()
-	textData := &TextData{
+	proto := protocol.NewProtocol()
+	textData := &models.TextData{
 		Text: text,
 	}
 
@@ -232,8 +236,8 @@ func (c *Client) StoreBinary(name string, data []byte, metadata map[string]strin
 		return "", fmt.Errorf("not authenticated")
 	}
 
-	proto := NewProtocol()
-	binaryData := &BinaryData{
+	proto := protocol.NewProtocol()
+	binaryData := &models.BinaryData{
 		Data: data,
 		Size: int64(len(data)),
 	}
@@ -274,8 +278,8 @@ func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[str
 		return "", fmt.Errorf("not authenticated")
 	}
 
-	proto := NewProtocol()
-	cardData := &BankCard{
+	proto := protocol.NewProtocol()
+	cardData := &models.BankCard{
 		Number: number,
 		Holder: holder,
 		Expiry: expiry,
@@ -312,7 +316,7 @@ func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[str
 	return record.Id, nil
 }
 
-func (c *Client) GetData(id string) (*DataItem, error) {
+func (c *Client) GetData(id string) (*models.DataItem, error) {
 	// Try local storage first
 	record, err := c.localStore.Get(id)
 	if err != nil {
@@ -334,29 +338,29 @@ func (c *Client) GetData(id string) (*DataItem, error) {
 
 	// Decrypt data
 	var content interface{}
-	proto := NewProtocol()
+	proto := protocol.NewProtocol()
 
 	switch record.Type {
 	case pb.DataType_LOGIN_PASSWORD:
-		var lp LoginPassword
+		var lp models.LoginPassword
 		if err := proto.DecryptData(c.crypto, record.Type, record.EncryptedData, &lp); err != nil {
 			return nil, err
 		}
 		content = lp
 	case pb.DataType_BANK_CARD:
-		var bc BankCard
+		var bc models.BankCard
 		if err := proto.DecryptData(c.crypto, record.Type, record.EncryptedData, &bc); err != nil {
 			return nil, err
 		}
 		content = bc
 	case pb.DataType_TEXT_DATA:
-		var td TextData
+		var td models.TextData
 		if err := proto.DecryptData(c.crypto, record.Type, record.EncryptedData, &td); err != nil {
 			return nil, err
 		}
 		content = td
 	case pb.DataType_BINARY_DATA:
-		var bd BinaryData
+		var bd models.BinaryData
 		if err := proto.DecryptData(c.crypto, record.Type, record.EncryptedData, &bd); err != nil {
 			return nil, err
 		}
@@ -365,7 +369,7 @@ func (c *Client) GetData(id string) (*DataItem, error) {
 		return nil, fmt.Errorf("unknown data type: %v", record.Type)
 	}
 
-	return &DataItem{
+	return &models.DataItem{
 		ID:        record.Id,
 		Type:      record.Type,
 		Name:      record.Name,
@@ -378,19 +382,19 @@ func (c *Client) GetData(id string) (*DataItem, error) {
 	}, nil
 }
 
-func (c *Client) ListData(filterType pb.DataType) ([]*DataItem, error) {
+func (c *Client) ListData(filterType pb.DataType) ([]*models.DataItem, error) {
 	records, err := c.localStore.List(filterType)
 	if err != nil {
 		return nil, err
 	}
 
-	var items []*DataItem
+	var items []*models.DataItem
 	for _, record := range records {
 		if record.Deleted {
 			continue
 		}
 
-		items = append(items, &DataItem{
+		items = append(items, &models.DataItem{
 			ID:        record.Id,
 			Type:      record.Type,
 			Name:      record.Name,

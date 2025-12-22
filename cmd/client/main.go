@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	cli2 "github.com/bezjen/gophkeeper/internal/client/cli"
 	"log"
 	"os"
 	"syscall"
@@ -80,7 +81,7 @@ func main() {
 		},
 	}
 
-	client.RegisterCommands(app)
+	cli2.RegisterCommands(app)
 
 	app.Commands = append(app.Commands, &cli.Command{
 		Name:  "version",
