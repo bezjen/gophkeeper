@@ -2,13 +2,11 @@ package client
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
-	"github.com/bezjen/gophkeeper/internal/client/config"
 	"os"
-	"path/filepath"
 	"time"
 
+	"github.com/bezjen/gophkeeper/internal/client/config"
 	crypto2 "github.com/bezjen/gophkeeper/internal/client/crypto"
 	"github.com/bezjen/gophkeeper/internal/client/filestore"
 	"github.com/bezjen/gophkeeper/internal/client/models"
@@ -28,22 +26,24 @@ type Client struct {
 	client     pb.GophKeeperClient
 	token      string
 	userID     string
-	configDir  string
+	configMgr  config.ManagerInterface
 	localStore filestore.StoreInterface
 	crypto     *crypto2.Crypto
 	ServerAddr string
 }
 
 func NewDefaultClient(serverAddr string) (*Client, error) {
-	configDir, err := config.GetConfigDir()
+	configMgr, err := config.NewDefaultManager()
 	if err != nil {
-		return nil, fmt.Errorf("failed to get config dir: %w", err)
+		return nil, fmt.Errorf("failed to create config manager: %w", err)
 	}
-	storeDir := filepath.Join(configDir, "data")
+
+	storeDir := configMgr.GetDataDir()
 	localStore, err := filestore.NewFileStore(storeDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local storage: %w", err)
 	}
+
 	conn, err := grpc.NewClient(serverAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*10)),
@@ -51,24 +51,22 @@ func NewDefaultClient(serverAddr string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
+
 	client := pb.NewGophKeeperClient(conn)
-	return NewClient(serverAddr, configDir, localStore, conn, client)
+	return NewClient(serverAddr, configMgr, localStore, conn, client)
 }
 
-func NewClient(serverAddr,
-	configDir string,
+func NewClient(
+	serverAddr string,
+	configMgr config.ManagerInterface,
 	store filestore.StoreInterface,
 	conn *grpc.ClientConn,
 	client pb.GophKeeperClient,
 ) (*Client, error) {
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create config directory: %w", err)
-	}
-
 	c := &Client{
 		conn:       conn,
 		client:     client,
-		configDir:  configDir,
+		configMgr:  configMgr,
 		localStore: store,
 		ServerAddr: serverAddr,
 	}
@@ -79,19 +77,17 @@ func NewClient(serverAddr,
 }
 
 func (c *Client) LoadConfig() error {
-	configFile := filepath.Join(c.configDir, "config.json")
-	data, err := os.ReadFile(configFile)
+	config, err := c.configMgr.LoadClientConfig()
 	if err != nil {
-		return nil
+		// Если файла конфигурации нет, это нормально (первый запуск)
+		if os.IsNotExist(err) {
+			return nil
+		}
+		return fmt.Errorf("failed to load client config: %w", err)
 	}
 
-	var config map[string]string
-	if err := json.Unmarshal(data, &config); err != nil {
-		return fmt.Errorf("failed to unmarshal config: %w", err)
-	}
-
-	c.token = config["token"]
-	c.userID = config["userID"]
+	c.token = config.Token
+	c.userID = config.UserID
 	return nil
 }
 
@@ -461,8 +457,7 @@ func (c *Client) Sync() error {
 	}
 
 	// Update last sync time
-	c.saveLastSync(resp.CurrentTime)
-	return nil
+	return c.saveLastSync(resp.CurrentTime)
 }
 
 func (c *Client) Close() error {
@@ -478,50 +473,35 @@ func (c *Client) authContext() context.Context {
 }
 
 func (c *Client) saveConfig() error {
-	config := map[string]string{
-		"token":  c.token,
-		"userID": c.userID,
+	config := &config.ClientConfig{
+		Token:  c.token,
+		UserID: c.userID,
 	}
-
-	data, err := json.Marshal(config)
-	if err != nil {
-		return err
-	}
-
-	configFile := filepath.Join(c.configDir, "config.json")
-	return os.WriteFile(configFile, data, 0600)
+	return c.configMgr.SaveClientConfig(config)
 }
 
 func (c *Client) loadLastSync() int64 {
-	configFile := filepath.Join(c.configDir, "sync.json")
-
-	// Проверяем существование файла перед чтением
-	if _, err := os.Stat(configFile); os.IsNotExist(err) {
-		return 0 // Если файла нет, возвращаем 0
-	}
-
-	data, err := os.ReadFile(configFile)
+	syncConfig, err := c.configMgr.LoadSyncConfig()
 	if err != nil {
+		if os.IsNotExist(err) {
+			return 0
+		}
 		return 0
 	}
-
-	var config struct {
-		LastSync int64 `json:"last_sync"`
-	}
-
-	// Игнорируем ошибку парсинга, если файл пустой или поврежден
-	json.Unmarshal(data, &config)
-	return config.LastSync
+	return syncConfig.LastSync
 }
 
-func (c *Client) saveLastSync(timestamp int64) {
-	config := struct {
-		LastSync int64 `json:"last_sync"`
-	}{
+func (c *Client) saveLastSync(timestamp int64) error {
+	config := &config.SyncConfig{
 		LastSync: timestamp,
 	}
+	return c.configMgr.SaveSyncConfig(config)
+}
 
-	data, _ := json.Marshal(config)
-	configFile := filepath.Join(c.configDir, "sync.json")
-	os.WriteFile(configFile, data, 0600)
+func (c *Client) GetToken() string {
+	return c.token
+}
+
+func (c *Client) GetUserID() string {
+	return c.userID
 }
