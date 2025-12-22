@@ -9,14 +9,12 @@ import (
 )
 
 func TestClientPrintBuildInfo(t *testing.T) {
-	// Захватываем вывод лога
 	var buf bytes.Buffer
 	log.SetOutput(&buf)
 	defer func() {
 		log.SetOutput(nil)
 	}()
 
-	// Устанавливаем тестовые значения
 	buildVersion = "1.0.0"
 	buildDate = "2024-01-01"
 	buildCommit = "abc123"
@@ -60,7 +58,6 @@ func TestAppConfiguration(t *testing.T) {
 		t.Errorf("Expected version '1.0.0', got %s", app.Version)
 	}
 
-	// Проверяем флаги
 	serverFlag, ok := app.Flags[0].(*cli.StringFlag)
 	if !ok {
 		t.Fatal("Expected StringFlag")
@@ -96,7 +93,7 @@ func TestSkipAuthCommands(t *testing.T) {
 		{"list", false},
 		{"delete", false},
 		{"sync", false},
-		{"", false}, // пустая команда
+		{"", false},
 	}
 
 	for _, tc := range testCases {
