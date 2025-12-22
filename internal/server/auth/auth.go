@@ -17,26 +17,26 @@ import (
 	"google.golang.org/grpc/status"
 )
 
-type AuthServiceInterface interface {
+type ServiceInterface interface {
 	Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
 	Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
 	GenerateToken(userID, username string) (string, error)
 	ValidateToken(tokenString string) (string, error)
 }
 
-type AuthService struct {
+type Service struct {
 	secret  []byte
 	storage storage.UserStorage
 }
 
-func NewAuthService(secret string, storage storage.UserStorage) *AuthService {
-	return &AuthService{
+func NewAuthService(secret string, storage storage.UserStorage) *Service {
+	return &Service{
 		secret:  []byte(secret),
 		storage: storage,
 	}
 }
 
-func (a *AuthService) Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
+func (a *Service) Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	existingUser, err := a.storage.GetUserByUsernameOrEmail(ctx, req.Username, req.Email)
 	if err != nil && !errors.Is(err, errors2.ErrNotFound) {
 		return nil, status.Errorf(codes.Internal, "failed to check user existence: %v", err)
@@ -73,7 +73,7 @@ func (a *AuthService) Register(ctx context.Context, req *models.AuthRequest) (*m
 	}, nil
 }
 
-func (a *AuthService) Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
+func (a *Service) Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	user, err := a.storage.GetUserByUsername(ctx, req.Username)
 	if err != nil {
 		if errors.Is(err, errors2.ErrNotFound) {
@@ -98,7 +98,7 @@ func (a *AuthService) Login(ctx context.Context, req *models.AuthRequest) (*mode
 	}, nil
 }
 
-func (a *AuthService) GenerateToken(userID, username string) (string, error) {
+func (a *Service) GenerateToken(userID, username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":  userID,
 		"username": username,
@@ -109,7 +109,7 @@ func (a *AuthService) GenerateToken(userID, username string) (string, error) {
 	return token.SignedString(a.secret)
 }
 
-func (a *AuthService) ValidateToken(tokenString string) (string, error) {
+func (a *Service) ValidateToken(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, fmt.Errorf("unexpected signing method: %v", token.Header["alg"])
