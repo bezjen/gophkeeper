@@ -38,8 +38,9 @@ threshold:
 exclude:
   # Exclude files or packages matching their paths
   paths:
-    - \.pb\.go$    # excludes all protobuf generated files
-    - ^mocks     # exclude package `mocks`
+    - ^internal/client/mocks
+    - ^internal/server/mocks
+    - ^pkg/bar
 
 # (optional; default false)
 # When true, requires all coverage-ignore annotations to include explanatory comments
