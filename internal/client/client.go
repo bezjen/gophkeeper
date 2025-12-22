@@ -4,14 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	crypto2 "github.com/bezjen/gophkeeper/internal/client/crypto"
-	"github.com/bezjen/gophkeeper/internal/client/filestore"
-	"github.com/bezjen/gophkeeper/internal/client/models"
-	"github.com/bezjen/gophkeeper/internal/client/protocol"
+	"github.com/bezjen/gophkeeper/internal/client/config"
 	"os"
 	"path/filepath"
 	"time"
 
+	crypto2 "github.com/bezjen/gophkeeper/internal/client/crypto"
+	"github.com/bezjen/gophkeeper/internal/client/filestore"
+	"github.com/bezjen/gophkeeper/internal/client/models"
+	"github.com/bezjen/gophkeeper/internal/client/protocol"
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 
 	"github.com/google/uuid"
@@ -28,25 +29,39 @@ type Client struct {
 	token      string
 	userID     string
 	configDir  string
-	localStore *filestore.FileStore
+	localStore filestore.StoreInterface
 	crypto     *crypto2.Crypto
 	ServerAddr string
 }
 
-func NewClient(serverAddr string) (*Client, error) {
-	configDir, err := getConfigDir()
+func NewDefaultClient(serverAddr string) (*Client, error) {
+	configDir, err := config.GetConfigDir()
 	if err != nil {
 		return nil, fmt.Errorf("failed to get config dir: %w", err)
 	}
-
-	// Create local storage
 	storeDir := filepath.Join(configDir, "data")
 	localStore, err := filestore.NewFileStore(storeDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local storage: %w", err)
 	}
+	return NewClient(serverAddr, configDir, localStore)
+}
 
-	// Connect to server
+func NewClient(serverAddr, configDir string, store filestore.StoreInterface) (*Client, error) {
+	if serverAddr == "" {
+		return nil, fmt.Errorf("server address is required")
+	}
+	if configDir == "" {
+		return nil, fmt.Errorf("config directory is required")
+	}
+	if store == nil {
+		return nil, fmt.Errorf("store is required")
+	}
+
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
+
 	conn, err := grpc.NewClient(serverAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*10)),
@@ -59,7 +74,7 @@ func NewClient(serverAddr string) (*Client, error) {
 		conn:       conn,
 		client:     pb.NewGophKeeperClient(conn),
 		configDir:  configDir,
-		localStore: localStore,
+		localStore: store,
 		ServerAddr: serverAddr,
 	}
 
@@ -68,7 +83,6 @@ func NewClient(serverAddr string) (*Client, error) {
 	return c, nil
 }
 
-// LoadConfig загружает токен и userID из конфигурационного файла
 func (c *Client) LoadConfig() error {
 	configFile := filepath.Join(c.configDir, "config.json")
 	data, err := os.ReadFile(configFile)
@@ -515,18 +529,4 @@ func (c *Client) saveLastSync(timestamp int64) {
 	data, _ := json.Marshal(config)
 	configFile := filepath.Join(c.configDir, "sync.json")
 	os.WriteFile(configFile, data, 0600)
-}
-
-func getConfigDir() (string, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return "", err
-	}
-
-	configDir := filepath.Join(home, ".gophkeeper")
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return "", err
-	}
-
-	return configDir, nil
 }

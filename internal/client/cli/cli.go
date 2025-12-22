@@ -25,7 +25,7 @@ func RegisterCommands(app *cli.App) {
 			},
 			Action: func(c *cli.Context) error {
 				serverAddr := c.String("server")
-				cl, err := client.NewClient(serverAddr)
+				cl, err := client.NewDefaultClient(serverAddr)
 				if err != nil {
 					return fmt.Errorf("failed to create client: %w", err)
 				}
@@ -47,7 +47,7 @@ func RegisterCommands(app *cli.App) {
 			},
 			Action: func(c *cli.Context) error {
 				serverAddr := c.String("server")
-				cl, err := client.NewClient(serverAddr)
+				cl, err := client.NewDefaultClient(serverAddr)
 				if err != nil {
 					return fmt.Errorf("failed to create client: %w", err)
 				}

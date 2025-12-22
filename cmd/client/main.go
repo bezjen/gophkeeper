@@ -50,7 +50,7 @@ func main() {
 			}
 
 			serverAddr := c.String("server")
-			cl, err := client.NewClient(serverAddr)
+			cl, err := client.NewDefaultClient(serverAddr)
 			if err != nil {
 				return fmt.Errorf("failed to initialize client: %w", err)
 			}
