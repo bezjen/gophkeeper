@@ -243,7 +243,7 @@ func RegisterCommands(app *cli.App) {
 				}
 
 				for _, item := range items {
-					fmt.Printf("%s: %s (%v)\n", item.ID[:8], item.Name, item.Type)
+					fmt.Printf("%s: %s (%v)\n", item.ID, item.Name, item.Type)
 				}
 				return nil
 			},
