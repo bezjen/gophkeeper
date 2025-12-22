@@ -44,24 +44,6 @@ func NewDefaultClient(serverAddr string) (*Client, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local storage: %w", err)
 	}
-	return NewClient(serverAddr, configDir, localStore)
-}
-
-func NewClient(serverAddr, configDir string, store filestore.StoreInterface) (*Client, error) {
-	if serverAddr == "" {
-		return nil, fmt.Errorf("server address is required")
-	}
-	if configDir == "" {
-		return nil, fmt.Errorf("config directory is required")
-	}
-	if store == nil {
-		return nil, fmt.Errorf("store is required")
-	}
-
-	if err := os.MkdirAll(configDir, 0700); err != nil {
-		return nil, fmt.Errorf("failed to create config directory: %w", err)
-	}
-
 	conn, err := grpc.NewClient(serverAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*10)),
@@ -69,10 +51,23 @@ func NewClient(serverAddr, configDir string, store filestore.StoreInterface) (*C
 	if err != nil {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
+	client := pb.NewGophKeeperClient(conn)
+	return NewClient(serverAddr, configDir, localStore, conn, client)
+}
+
+func NewClient(serverAddr,
+	configDir string,
+	store filestore.StoreInterface,
+	conn *grpc.ClientConn,
+	client pb.GophKeeperClient,
+) (*Client, error) {
+	if err := os.MkdirAll(configDir, 0700); err != nil {
+		return nil, fmt.Errorf("failed to create config directory: %w", err)
+	}
 
 	c := &Client{
 		conn:       conn,
-		client:     pb.NewGophKeeperClient(conn),
+		client:     client,
 		configDir:  configDir,
 		localStore: store,
 		ServerAddr: serverAddr,
