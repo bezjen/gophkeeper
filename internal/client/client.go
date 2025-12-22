@@ -35,12 +35,14 @@ func NewClient(serverAddr string) (*Client, error) {
 		return nil, fmt.Errorf("failed to get config dir: %w", err)
 	}
 
+	// Create local storage
 	storeDir := filepath.Join(configDir, "data")
 	localStore, err := NewFileStore(storeDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create local storage: %w", err)
 	}
 
+	// Connect to server
 	conn, err := grpc.NewClient(serverAddr,
 		grpc.WithTransportCredentials(insecure.NewCredentials()),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*10)),
@@ -49,12 +51,35 @@ func NewClient(serverAddr string) (*Client, error) {
 		return nil, fmt.Errorf("failed to connect: %w", err)
 	}
 
-	return &Client{
+	c := &Client{
 		conn:       conn,
 		client:     pb.NewGophKeeperClient(conn),
 		configDir:  configDir,
 		localStore: localStore,
-	}, nil
+		ServerAddr: serverAddr,
+	}
+
+	c.LoadConfig()
+
+	return c, nil
+}
+
+// LoadConfig загружает токен и userID из конфигурационного файла
+func (c *Client) LoadConfig() error {
+	configFile := filepath.Join(c.configDir, "config.json")
+	data, err := os.ReadFile(configFile)
+	if err != nil {
+		return nil
+	}
+
+	var config map[string]string
+	if err := json.Unmarshal(data, &config); err != nil {
+		return fmt.Errorf("failed to unmarshal config: %w", err)
+	}
+
+	c.token = config["token"]
+	c.userID = config["userID"]
+	return nil
 }
 
 func (c *Client) InitSession(password string) error {
@@ -108,10 +133,12 @@ func (c *Client) Login(username, password string) error {
 	c.userID = resp.UserId
 	c.crypto = NewCrypto(password, c.userID)
 
+	// Save config after successful login
 	if err := c.saveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
+	// Perform initial sync
 	return c.Sync()
 }
 
@@ -138,10 +165,12 @@ func (c *Client) StoreLoginPassword(name, username, password string, metadata ma
 		return "", err
 	}
 
+	// Save locally
 	if err := c.localStore.Save(record); err != nil {
 		return "", fmt.Errorf("failed to save locally: %w", err)
 	}
 
+	// Sync to server
 	ctx := c.authContext()
 	resp, err := c.client.StoreData(ctx, &pb.StoreRequest{
 		Data: record,
@@ -152,10 +181,7 @@ func (c *Client) StoreLoginPassword(name, username, password string, metadata ma
 
 	record.Id = resp.Id
 	record.Version = resp.Version
-	err = c.localStore.Save(record)
-	if err != nil {
-		return "", err
-	}
+	c.localStore.Save(record)
 
 	return record.Id, nil
 }
@@ -196,10 +222,7 @@ func (c *Client) StoreText(name, text string, metadata map[string]string) (strin
 
 	record.Id = resp.Id
 	record.Version = resp.Version
-	err = c.localStore.Save(record)
-	if err != nil {
-		return "", err
-	}
+	c.localStore.Save(record)
 
 	return record.Id, nil
 }
@@ -241,10 +264,7 @@ func (c *Client) StoreBinary(name string, data []byte, metadata map[string]strin
 
 	record.Id = resp.Id
 	record.Version = resp.Version
-	err = c.localStore.Save(record)
-	if err != nil {
-		return "", err
-	}
+	c.localStore.Save(record)
 
 	return record.Id, nil
 }
@@ -287,17 +307,16 @@ func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[str
 
 	record.Id = resp.Id
 	record.Version = resp.Version
-	err = c.localStore.Save(record)
-	if err != nil {
-		return "", err
-	}
+	c.localStore.Save(record)
 
 	return record.Id, nil
 }
 
 func (c *Client) GetData(id string) (*DataItem, error) {
+	// Try local storage first
 	record, err := c.localStore.Get(id)
 	if err != nil {
+		// Fallback to server
 		ctx := c.authContext()
 		resp, err := c.client.RetrieveData(ctx, &pb.RetrieveRequest{
 			Id: id,
@@ -306,16 +325,14 @@ func (c *Client) GetData(id string) (*DataItem, error) {
 			return nil, fmt.Errorf("data not found: %w", err)
 		}
 		record = resp.Data
-		err = c.localStore.Save(record)
-		if err != nil {
-			return nil, err
-		}
+		c.localStore.Save(record)
 	}
 
 	if record.Deleted {
 		return nil, fmt.Errorf("record was deleted")
 	}
 
+	// Decrypt data
 	var content interface{}
 	proto := NewProtocol()
 
@@ -389,6 +406,7 @@ func (c *Client) ListData(filterType pb.DataType) ([]*DataItem, error) {
 }
 
 func (c *Client) DeleteData(id string) error {
+	// Mark as deleted locally
 	record, err := c.localStore.Get(id)
 	if err != nil {
 		return fmt.Errorf("record not found: %w", err)
@@ -396,11 +414,9 @@ func (c *Client) DeleteData(id string) error {
 
 	record.Deleted = true
 	record.UpdatedAt = time.Now().Unix()
-	err = c.localStore.Save(record)
-	if err != nil {
-		return err
-	}
+	c.localStore.Save(record)
 
+	// Delete on server
 	ctx := c.authContext()
 	_, err = c.client.DeleteData(ctx, &pb.DeleteRequest{
 		Id: id,
@@ -409,12 +425,14 @@ func (c *Client) DeleteData(id string) error {
 }
 
 func (c *Client) Sync() error {
+	// Get local changes
 	lastSync := c.loadLastSync()
 	localChanges, err := c.localStore.GetChangedSince(lastSync)
 	if err != nil {
 		return fmt.Errorf("failed to get local changes: %w", err)
 	}
 
+	// Send to server
 	ctx := c.authContext()
 	resp, err := c.client.Sync(ctx, &pb.SyncRequest{
 		LocalChanges: localChanges,
@@ -424,11 +442,14 @@ func (c *Client) Sync() error {
 		return fmt.Errorf("sync failed: %w", err)
 	}
 
+	// Apply server changes
 	if err := c.localStore.Sync(resp.ServerData); err != nil {
 		return fmt.Errorf("failed to apply server changes: %w", err)
 	}
 
-	return c.saveLastSync(resp.CurrentTime)
+	// Update last sync time
+	c.saveLastSync(resp.CurrentTime)
+	return nil
 }
 
 func (c *Client) Close() error {
@@ -480,7 +501,7 @@ func (c *Client) loadLastSync() int64 {
 	return config.LastSync
 }
 
-func (c *Client) saveLastSync(timestamp int64) error {
+func (c *Client) saveLastSync(timestamp int64) {
 	config := struct {
 		LastSync int64 `json:"last_sync"`
 	}{
@@ -489,7 +510,7 @@ func (c *Client) saveLastSync(timestamp int64) error {
 
 	data, _ := json.Marshal(config)
 	configFile := filepath.Join(c.configDir, "sync.json")
-	return os.WriteFile(configFile, data, 0600)
+	os.WriteFile(configFile, data, 0600)
 }
 
 func getConfigDir() (string, error) {
