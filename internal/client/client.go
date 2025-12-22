@@ -24,11 +24,11 @@ import (
 type Client struct {
 	conn       *grpc.ClientConn
 	client     pb.GophKeeperClient
-	token      string
-	userID     string
 	configMgr  config.ManagerInterface
 	localStore filestore.StoreInterface
 	crypto     *crypto.Crypto
+	Token      string
+	UserID     string
 	ServerAddr string
 }
 
@@ -86,21 +86,21 @@ func (c *Client) LoadConfig() error {
 		return fmt.Errorf("failed to load client config: %w", err)
 	}
 
-	c.token = config.Token
-	c.userID = config.UserID
+	c.Token = config.Token
+	c.UserID = config.UserID
 	return nil
 }
 
 func (c *Client) InitSession(password string) error {
-	if c.userID == "" {
+	if c.UserID == "" {
 		return fmt.Errorf("user ID not found in config")
 	}
-	c.crypto = crypto.NewCrypto(password, c.userID)
+	c.crypto = crypto.NewCrypto(password, c.UserID)
 	return nil
 }
 
 func (c *Client) IsAuthenticated() bool {
-	return c.token != "" && c.userID != ""
+	return c.Token != "" && c.UserID != ""
 }
 
 func (c *Client) Register(username, password, email string) error {
@@ -116,11 +116,15 @@ func (c *Client) Register(username, password, email string) error {
 		return fmt.Errorf("registration failed: %v", err)
 	}
 
-	c.token = resp.Token
-	c.userID = resp.UserId
-	c.crypto = crypto.NewCrypto(password, c.userID)
+	c.Token = resp.Token
+	c.UserID = resp.UserId
+	c.crypto = crypto.NewCrypto(password, c.UserID)
 
-	return c.saveConfig()
+	if err := c.SaveConfig(); err != nil {
+		return fmt.Errorf("failed to save config: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) Login(username, password string) error {
@@ -138,12 +142,12 @@ func (c *Client) Login(username, password string) error {
 		return fmt.Errorf("login failed: %v", err)
 	}
 
-	c.token = resp.Token
-	c.userID = resp.UserId
-	c.crypto = crypto.NewCrypto(password, c.userID)
+	c.Token = resp.Token
+	c.UserID = resp.UserId
+	c.crypto = crypto.NewCrypto(password, c.UserID)
 
 	// Save config after successful login
-	if err := c.saveConfig(); err != nil {
+	if err := c.SaveConfig(); err != nil {
 		return fmt.Errorf("failed to save config: %w", err)
 	}
 
@@ -218,7 +222,7 @@ func (c *Client) StoreText(name, text string, metadata map[string]string) (strin
 	}
 
 	if err := c.localStore.Save(record); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to save locally: %w", err)
 	}
 
 	ctx := c.authContext()
@@ -260,7 +264,7 @@ func (c *Client) StoreBinary(name string, data []byte, metadata map[string]strin
 	}
 
 	if err := c.localStore.Save(record); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to save locally: %w", err)
 	}
 
 	ctx := c.authContext()
@@ -303,7 +307,7 @@ func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[str
 	}
 
 	if err := c.localStore.Save(record); err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to save locally: %w", err)
 	}
 
 	ctx := c.authContext()
@@ -435,7 +439,7 @@ func (c *Client) DeleteData(id string) error {
 
 func (c *Client) Sync() error {
 	// Get local changes
-	lastSync := c.loadLastSync()
+	lastSync := c.LoadLastSync()
 	localChanges, err := c.localStore.GetChangedSince(lastSync)
 	if err != nil {
 		return fmt.Errorf("failed to get local changes: %w", err)
@@ -457,7 +461,11 @@ func (c *Client) Sync() error {
 	}
 
 	// Update last sync time
-	return c.saveLastSync(resp.CurrentTime)
+	if err := c.SaveLastSync(resp.CurrentTime); err != nil {
+		return fmt.Errorf("failed to save sync config: %w", err)
+	}
+
+	return nil
 }
 
 func (c *Client) Close() error {
@@ -468,19 +476,19 @@ func (c *Client) Close() error {
 }
 
 func (c *Client) authContext() context.Context {
-	md := metadata.Pairs("authorization", c.token)
+	md := metadata.Pairs("authorization", c.Token)
 	return metadata.NewOutgoingContext(context.Background(), md)
 }
 
-func (c *Client) saveConfig() error {
+func (c *Client) SaveConfig() error {
 	config := &config.ClientConfig{
-		Token:  c.token,
-		UserID: c.userID,
+		Token:  c.Token,
+		UserID: c.UserID,
 	}
 	return c.configMgr.SaveClientConfig(config)
 }
 
-func (c *Client) loadLastSync() int64 {
+func (c *Client) LoadLastSync() int64 {
 	syncConfig, err := c.configMgr.LoadSyncConfig()
 	if err != nil {
 		if os.IsNotExist(err) {
@@ -491,17 +499,9 @@ func (c *Client) loadLastSync() int64 {
 	return syncConfig.LastSync
 }
 
-func (c *Client) saveLastSync(timestamp int64) error {
+func (c *Client) SaveLastSync(timestamp int64) error {
 	config := &config.SyncConfig{
 		LastSync: timestamp,
 	}
 	return c.configMgr.SaveSyncConfig(config)
-}
-
-func (c *Client) GetToken() string {
-	return c.token
-}
-
-func (c *Client) GetUserID() string {
-	return c.userID
 }
