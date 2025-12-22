@@ -1,3 +1,4 @@
+//go:generate mockery --name=StoreInterface --output=../mocks --outpkg=mocks --case=underscore
 package filestore
 
 import (
@@ -9,6 +10,14 @@ import (
 
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 )
+
+type StoreInterface interface {
+	Save(record *pb.DataRecord) error
+	Get(id string) (*pb.DataRecord, error)
+	List(filterType pb.DataType) ([]*pb.DataRecord, error)
+	Sync(records []*pb.DataRecord) error
+	GetChangedSince(timestamp int64) ([]*pb.DataRecord, error)
+}
 
 type FileStore struct {
 	baseDir string
