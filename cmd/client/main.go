@@ -20,8 +20,6 @@ var (
 )
 
 func main() {
-	printBuildInfo()
-
 	app := &cli.App{
 		Name:    "gophkeeper",
 		Version: fmt.Sprintf("%s", buildVersion),
@@ -88,7 +86,7 @@ func main() {
 		Name:  "version",
 		Usage: "Print version info",
 		Action: func(c *cli.Context) error {
-			fmt.Printf("GophKeeper Client\nVersion: %s\nBuild Date: %s\n", buildVersion, buildDate)
+			printBuildInfo()
 			return nil
 		},
 	})
