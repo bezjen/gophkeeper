@@ -16,7 +16,16 @@ import (
 	"google.golang.org/grpc"
 )
 
+// Global build information variables
+// These are set during build process using ldflags
+var (
+	buildVersion string
+	buildDate    string
+	buildCommit  string
+)
+
 func main() {
+	printBuildInfo()
 	port := flag.String("port", "8080", "Server port")
 	dbDSN := flag.String("db-dsn", "gophkeeper.db", "Database DSN")
 	jwtSecret := flag.String("jwt-secret", "test-secret-key", "JWT secret key")
@@ -47,4 +56,26 @@ func main() {
 	if err := grpcServer.Serve(lis); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
+}
+
+// printBuildInfo outputs build version, date and commit information
+func printBuildInfo() {
+	version := buildVersion
+	if version == "" {
+		version = "N/A"
+	}
+
+	date := buildDate
+	if date == "" {
+		date = "N/A"
+	}
+
+	commit := buildCommit
+	if commit == "" {
+		commit = "N/A"
+	}
+
+	log.Printf("Build version: %s\n", version)
+	log.Printf("Build date: %s\n", date)
+	log.Printf("Build commit: %s\n", commit)
 }
