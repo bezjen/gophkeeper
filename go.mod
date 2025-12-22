@@ -10,6 +10,7 @@ require (
 	github.com/stretchr/testify v1.10.0
 	github.com/urfave/cli/v2 v2.27.7
 	golang.org/x/crypto v0.46.0
+	golang.org/x/term v0.38.0
 	google.golang.org/grpc v1.77.0
 	google.golang.org/protobuf v1.36.11
 	modernc.org/sqlite v1.18.1
