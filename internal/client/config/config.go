@@ -48,6 +48,7 @@ func NewManager(configDir string) (*Manager, error) {
 	return &Manager{
 		dataDir:    filepath.Join(configDir, "data"),
 		configFile: filepath.Join(configDir, "config.json"),
+		syncFile:   filepath.Join(configDir, "sync.json"),
 	}, nil
 }
 
@@ -66,6 +67,10 @@ func GetConfigDir() (string, error) {
 }
 
 func (m *Manager) LoadClientConfig() (*ClientConfig, error) {
+	if _, err := os.Stat(m.configFile); os.IsNotExist(err) {
+		return &ClientConfig{}, nil
+	}
+
 	data, err := os.ReadFile(m.configFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read config file: %w", err)
@@ -93,6 +98,10 @@ func (m *Manager) SaveClientConfig(config *ClientConfig) error {
 }
 
 func (m *Manager) LoadSyncConfig() (*SyncConfig, error) {
+	if _, err := os.Stat(m.syncFile); os.IsNotExist(err) {
+		return &SyncConfig{LastSync: 0}, nil
+	}
+
 	data, err := os.ReadFile(m.syncFile)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read sync config: %w", err)
