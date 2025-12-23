@@ -79,7 +79,7 @@ func NewClient(
 func (c *Client) LoadConfig() error {
 	config, err := c.configMgr.LoadClientConfig()
 	if err != nil {
-		// Если файла конфигурации нет, это нормально (первый запуск)
+		// First run
 		if os.IsNotExist(err) {
 			return nil
 		}
@@ -455,12 +455,10 @@ func (c *Client) Sync() error {
 		return fmt.Errorf("sync failed: %w", err)
 	}
 
-	// Apply server changes
 	if err := c.localStore.Sync(resp.ServerData); err != nil {
 		return fmt.Errorf("failed to apply server changes: %w", err)
 	}
 
-	// Update last sync time
 	if err := c.SaveLastSync(resp.CurrentTime); err != nil {
 		return fmt.Errorf("failed to save sync config: %w", err)
 	}
