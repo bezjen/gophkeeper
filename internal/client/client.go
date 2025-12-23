@@ -1,3 +1,5 @@
+// Package client provides the GophKeeper client implementation with gRPC communication,
+// local caching, and synchronization capabilities.
 package client
 
 import (
@@ -21,6 +23,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Client is the main client type that manages connections, authentication, and data operations.
 type Client struct {
 	conn       *grpc.ClientConn
 	client     pb.GophKeeperClient
@@ -32,6 +35,7 @@ type Client struct {
 	ServerAddr string
 }
 
+// NewDefaultClient creates a new Client with default configuration.
 func NewDefaultClient(serverAddr string) (*Client, error) {
 	configMgr, err := config.NewDefaultManager()
 	if err != nil {
@@ -56,6 +60,7 @@ func NewDefaultClient(serverAddr string) (*Client, error) {
 	return NewClient(serverAddr, configMgr, localStore, conn, client)
 }
 
+// NewClient creates a new Client with the provided dependencies.
 func NewClient(
 	serverAddr string,
 	configMgr config.ManagerInterface,
@@ -76,6 +81,7 @@ func NewClient(
 	return c, nil
 }
 
+// LoadConfig loads client configuration from persistent storage.
 func (c *Client) LoadConfig() error {
 	config, err := c.configMgr.LoadClientConfig()
 	if err != nil {
@@ -91,6 +97,7 @@ func (c *Client) LoadConfig() error {
 	return nil
 }
 
+// InitSession initializes the cryptographic session with the user's master password.
 func (c *Client) InitSession(password string) error {
 	if c.UserID == "" {
 		return fmt.Errorf("user ID not found in config")
@@ -99,10 +106,12 @@ func (c *Client) InitSession(password string) error {
 	return nil
 }
 
+// IsAuthenticated checks if the client has valid authentication credentials.
 func (c *Client) IsAuthenticated() bool {
 	return c.Token != "" && c.UserID != ""
 }
 
+// Register registers a new user account with the server.
 func (c *Client) Register(username, password, email string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -127,6 +136,7 @@ func (c *Client) Register(username, password, email string) error {
 	return nil
 }
 
+// Login authenticates a user with the server and establishes a session.
 func (c *Client) Login(username, password string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
@@ -155,6 +165,7 @@ func (c *Client) Login(username, password string) error {
 	return c.Sync()
 }
 
+// StoreLoginPassword stores login credentials both locally and on the server.
 func (c *Client) StoreLoginPassword(name, username, password string, metadata map[string]string) (string, error) {
 	if c.crypto == nil {
 		return "", fmt.Errorf("not authenticated")
@@ -199,6 +210,7 @@ func (c *Client) StoreLoginPassword(name, username, password string, metadata ma
 	return record.Id, nil
 }
 
+// StoreText stores text data both locally and on the server.
 func (c *Client) StoreText(name, text string, metadata map[string]string) (string, error) {
 	if c.crypto == nil {
 		return "", fmt.Errorf("not authenticated")
@@ -240,6 +252,7 @@ func (c *Client) StoreText(name, text string, metadata map[string]string) (strin
 	return record.Id, nil
 }
 
+// StoreBinary stores binary data both locally and on the server.
 func (c *Client) StoreBinary(name string, data []byte, metadata map[string]string) (string, error) {
 	if c.crypto == nil {
 		return "", fmt.Errorf("not authenticated")
@@ -282,6 +295,7 @@ func (c *Client) StoreBinary(name string, data []byte, metadata map[string]strin
 	return record.Id, nil
 }
 
+// StoreCard stores bank card information both locally and on the server.
 func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[string]string) (string, error) {
 	if c.crypto == nil {
 		return "", fmt.Errorf("not authenticated")
@@ -325,6 +339,7 @@ func (c *Client) StoreCard(name, number, holder, expiry string, metadata map[str
 	return record.Id, nil
 }
 
+// GetData retrieves data by ID, first checking local cache then falling back to server.
 func (c *Client) GetData(id string) (*models.DataItem, error) {
 	// Try local storage first
 	record, err := c.localStore.Get(id)
@@ -391,6 +406,7 @@ func (c *Client) GetData(id string) (*models.DataItem, error) {
 	}, nil
 }
 
+// ListData lists data records from local storage, optionally filtered by type.
 func (c *Client) ListData(filterType pb.DataType) ([]*models.DataItem, error) {
 	records, err := c.localStore.List(filterType)
 	if err != nil {
@@ -418,6 +434,7 @@ func (c *Client) ListData(filterType pb.DataType) ([]*models.DataItem, error) {
 	return items, nil
 }
 
+// DeleteData marks a data record as deleted locally and on the server.
 func (c *Client) DeleteData(id string) error {
 	// Mark as deleted locally
 	record, err := c.localStore.Get(id)
@@ -437,6 +454,7 @@ func (c *Client) DeleteData(id string) error {
 	return err
 }
 
+// Sync synchronizes local data with the server.
 func (c *Client) Sync() error {
 	// Get local changes
 	lastSync := c.LoadLastSync()
@@ -466,6 +484,7 @@ func (c *Client) Sync() error {
 	return nil
 }
 
+// Close closes the client connection and releases resources.
 func (c *Client) Close() error {
 	if c.conn != nil {
 		return c.conn.Close()
@@ -473,11 +492,13 @@ func (c *Client) Close() error {
 	return nil
 }
 
+// authContext creates a context with authentication metadata for gRPC calls.
 func (c *Client) authContext() context.Context {
 	md := metadata.Pairs("authorization", c.Token)
 	return metadata.NewOutgoingContext(context.Background(), md)
 }
 
+// SaveConfig saves the client configuration to persistent storage.
 func (c *Client) SaveConfig() error {
 	config := &config.ClientConfig{
 		Token:  c.Token,
@@ -486,6 +507,7 @@ func (c *Client) SaveConfig() error {
 	return c.configMgr.SaveClientConfig(config)
 }
 
+// LoadLastSync loads the last synchronization timestamp.
 func (c *Client) LoadLastSync() int64 {
 	syncConfig, err := c.configMgr.LoadSyncConfig()
 	if err != nil {
@@ -497,6 +519,7 @@ func (c *Client) LoadLastSync() int64 {
 	return syncConfig.LastSync
 }
 
+// SaveLastSync saves the last synchronization timestamp.
 func (c *Client) SaveLastSync(timestamp int64) error {
 	config := &config.SyncConfig{
 		LastSync: timestamp,

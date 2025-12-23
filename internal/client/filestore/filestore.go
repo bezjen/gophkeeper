@@ -1,3 +1,6 @@
+// Package filestore provides local file-based storage for GophKeeper client data.
+// It implements caching and JSON serialization for efficient data access.
+//
 //go:generate mockery --name=StoreInterface --output=../mocks --outpkg=mocks --case=underscore
 package filestore
 
@@ -11,20 +14,32 @@ import (
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 )
 
+// StoreInterface defines the interface for local data storage operations.
 type StoreInterface interface {
+	// Save stores a data record to local storage.
 	Save(record *pb.DataRecord) error
+
+	// Get retrieves a data record by ID from local storage.
 	Get(id string) (*pb.DataRecord, error)
+
+	// List returns all data records, optionally filtered by type.
 	List(filterType pb.DataType) ([]*pb.DataRecord, error)
+
+	// Sync updates local storage with multiple records (for synchronization).
 	Sync(records []*pb.DataRecord) error
+
+	// GetChangedSince returns records modified after the specified timestamp.
 	GetChangedSince(timestamp int64) ([]*pb.DataRecord, error)
 }
 
+// FileStore implements StoreInterface with file-based storage and in-memory caching.
 type FileStore struct {
 	baseDir string
 	cache   map[string]*pb.DataRecord
 	mu      sync.RWMutex
 }
 
+// NewFileStore creates a new FileStore instance with the specified base directory.
 func NewFileStore(baseDir string) (*FileStore, error) {
 	if err := os.MkdirAll(baseDir, 0700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
@@ -42,6 +57,7 @@ func NewFileStore(baseDir string) (*FileStore, error) {
 	return store, nil
 }
 
+// Save implements StoreInterface.Save with caching and file persistence.
 func (s *FileStore) Save(record *pb.DataRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -57,6 +73,7 @@ func (s *FileStore) Save(record *pb.DataRecord) error {
 	return os.WriteFile(filename, data, 0600)
 }
 
+// Get implements StoreInterface.Get with cache-first lookup.
 func (s *FileStore) Get(id string) (*pb.DataRecord, error) {
 	s.mu.RLock()
 	record, exists := s.cache[id]
@@ -84,6 +101,7 @@ func (s *FileStore) Get(id string) (*pb.DataRecord, error) {
 	return &loadedRecord, nil
 }
 
+// List implements StoreInterface.List with optional type filtering.
 func (s *FileStore) List(filterType pb.DataType) ([]*pb.DataRecord, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -98,6 +116,7 @@ func (s *FileStore) List(filterType pb.DataType) ([]*pb.DataRecord, error) {
 	return result, nil
 }
 
+// Sync implements StoreInterface.Sync by updating local storage with newer records.
 func (s *FileStore) Sync(records []*pb.DataRecord) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -120,6 +139,7 @@ func (s *FileStore) Sync(records []*pb.DataRecord) error {
 	return nil
 }
 
+// GetChangedSince implements StoreInterface.GetChangedSince for synchronization.
 func (s *FileStore) GetChangedSince(timestamp int64) ([]*pb.DataRecord, error) {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -134,6 +154,7 @@ func (s *FileStore) GetChangedSince(timestamp int64) ([]*pb.DataRecord, error) {
 	return result, nil
 }
 
+// loadAll loads all JSON files from the base directory into the cache.
 func (s *FileStore) loadAll() error {
 	s.mu.Lock()
 	defer s.mu.Unlock()

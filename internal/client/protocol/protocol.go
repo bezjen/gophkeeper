@@ -1,3 +1,5 @@
+// Package protocol provides data serialization and encryption protocol for GophKeeper.
+// It handles conversion between data types, encryption/decryption, and record creation.
 package protocol
 
 import (
@@ -11,12 +13,15 @@ import (
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 )
 
+// Protocol provides methods for data type conversion, encryption, and record creation.
 type Protocol struct{}
 
+// NewProtocol creates a new Protocol instance.
 func NewProtocol() *Protocol {
 	return &Protocol{}
 }
 
+// StringToDataType converts a string representation to a DataType enum value.
 func (p *Protocol) StringToDataType(s string) pb.DataType {
 	switch strings.ToLower(s) {
 	case "login", "password":
@@ -32,6 +37,7 @@ func (p *Protocol) StringToDataType(s string) pb.DataType {
 	}
 }
 
+// EncryptData encrypts structured data using the provided crypto instance.
 func (p *Protocol) EncryptData(crypto *crypto.Crypto, content interface{}) ([]byte, error) {
 	var jsonData []byte
 	var err error
@@ -60,6 +66,7 @@ func (p *Protocol) EncryptData(crypto *crypto.Crypto, content interface{}) ([]by
 	return crypto.Encrypt(jsonData)
 }
 
+// DecryptData decrypts and unmarshals data into the appropriate structure based on type.
 func (p *Protocol) DecryptData(crypto *crypto.Crypto, dataType pb.DataType, encrypted []byte, target interface{}) error {
 	decrypted, err := crypto.Decrypt(encrypted)
 	if err != nil {
@@ -99,6 +106,7 @@ func (p *Protocol) DecryptData(crypto *crypto.Crypto, dataType pb.DataType, encr
 	return nil
 }
 
+// CreateDataRecord creates a new encrypted DataRecord from the provided data.
 func (p *Protocol) CreateDataRecord(
 	id string,
 	dataType pb.DataType,

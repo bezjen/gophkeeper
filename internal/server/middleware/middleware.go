@@ -1,3 +1,4 @@
+// Package middleware provides gRPC interceptors for authentication and authorization.
 package middleware
 
 import (
@@ -10,6 +11,7 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// NewAuthInterceptor creates a gRPC unary interceptor that validates JWT tokens.
 func NewAuthInterceptor(auth auth.ServiceInterface) grpc.UnaryServerInterceptor {
 	return func(ctx context.Context, req interface{},
 		info *grpc.UnaryServerInfo, handler grpc.UnaryHandler) (interface{}, error) {
@@ -40,8 +42,10 @@ func NewAuthInterceptor(auth auth.ServiceInterface) grpc.UnaryServerInterceptor 
 	}
 }
 
+// UserIDKey is the context key type for storing user ID.
 type UserIDKey struct{}
 
+// GetUserIDFromContext extracts the user ID from the context.
 func GetUserIDFromContext(ctx context.Context) (string, error) {
 	userID, ok := ctx.Value(UserIDKey{}).(string)
 	if !ok {

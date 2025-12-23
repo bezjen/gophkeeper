@@ -1,3 +1,4 @@
+// Package cli provides command-line interface commands and utilities for the GophKeeper client.
 package cli
 
 import (
@@ -13,6 +14,7 @@ import (
 	"github.com/urfave/cli/v2"
 )
 
+// RegisterCommands registers all CLI commands with the application.
 func RegisterCommands(app *cli.App) {
 	app.Commands = []*cli.Command{
 		{
@@ -280,6 +282,7 @@ func RegisterCommands(app *cli.App) {
 	}
 }
 
+// parseMetadata converts command-line metadata flags to a map.
 func parseMetadata(meta []string) map[string]string {
 	result := make(map[string]string)
 	for _, m := range meta {

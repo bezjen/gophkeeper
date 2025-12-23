@@ -1,3 +1,6 @@
+// Package auth provides authentication and authorization services for GophKeeper.
+// It handles user registration, login, JWT token generation and validation.
+//
 //go:generate mockery --name=AuthServiceInterface --output=../mocks --outpkg=mocks --case=underscore
 package auth
 
@@ -17,18 +20,28 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// ServiceInterface defines the authentication service interface.
 type ServiceInterface interface {
+	// Register creates a new user account and returns authentication tokens.
 	Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
+
+	// Login authenticates a user and returns authentication tokens.
 	Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error)
+
+	// GenerateToken creates a new JWT token for an authenticated user.
 	GenerateToken(userID, username string) (string, error)
+
+	// ValidateToken verifies and extracts user information from a JWT token.
 	ValidateToken(tokenString string) (string, error)
 }
 
+// Service implements the authentication service with JWT-based authentication.
 type Service struct {
 	secret  []byte
 	storage storage.UserStorage
 }
 
+// NewAuthService creates a new authentication service instance.
 func NewAuthService(secret string, storage storage.UserStorage) *Service {
 	return &Service{
 		secret:  []byte(secret),
@@ -36,6 +49,7 @@ func NewAuthService(secret string, storage storage.UserStorage) *Service {
 	}
 }
 
+// Register implements ServiceInterface.Register for user registration.
 func (a *Service) Register(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	existingUser, err := a.storage.GetUserByUsernameOrEmail(ctx, req.Username, req.Email)
 	if err != nil && !errors.Is(err, errors2.ErrNotFound) {
@@ -73,6 +87,7 @@ func (a *Service) Register(ctx context.Context, req *models.AuthRequest) (*model
 	}, nil
 }
 
+// Login implements ServiceInterface.Login for user authentication.
 func (a *Service) Login(ctx context.Context, req *models.AuthRequest) (*models.AuthResponse, error) {
 	user, err := a.storage.GetUserByUsername(ctx, req.Username)
 	if err != nil {
@@ -98,6 +113,7 @@ func (a *Service) Login(ctx context.Context, req *models.AuthRequest) (*models.A
 	}, nil
 }
 
+// GenerateToken implements ServiceInterface.GenerateToken for JWT creation.
 func (a *Service) GenerateToken(userID, username string) (string, error) {
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"user_id":  userID,
@@ -109,6 +125,7 @@ func (a *Service) GenerateToken(userID, username string) (string, error) {
 	return token.SignedString(a.secret)
 }
 
+// ValidateToken implements ServiceInterface.ValidateToken for JWT verification.
 func (a *Service) ValidateToken(tokenString string) (string, error) {
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
 		if _, ok := token.Method.(*jwt.SigningMethodHMAC); !ok {

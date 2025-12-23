@@ -1,3 +1,4 @@
+// Package service implements the gRPC service interface for GophKeeper server.
 package service
 
 import (
@@ -16,12 +17,14 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// Service implements the GophKeeper gRPC server interface.
 type Service struct {
 	pb.UnimplementedGophKeeperServer
 	storage storage2.Storage
 	auth    auth.ServiceInterface
 }
 
+// NewService creates a new Service instance with the provided storage and auth services.
 func NewService(storage storage2.Storage, auth auth.ServiceInterface) *Service {
 	return &Service{
 		storage: storage,
@@ -29,6 +32,7 @@ func NewService(storage storage2.Storage, auth auth.ServiceInterface) *Service {
 	}
 }
 
+// Register handles user registration requests.
 func (s *Service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.RegisterResponse, error) {
 	authReq := &models.AuthRequest{
 		Username: req.Username,
@@ -47,6 +51,7 @@ func (s *Service) Register(ctx context.Context, req *pb.RegisterRequest) (*pb.Re
 	}, nil
 }
 
+// Login handles user authentication requests.
 func (s *Service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginResponse, error) {
 	authReq := &models.AuthRequest{
 		Username: req.Username,
@@ -64,6 +69,7 @@ func (s *Service) Login(ctx context.Context, req *pb.LoginRequest) (*pb.LoginRes
 	}, nil
 }
 
+// StoreData handles requests to store encrypted data records.
 func (s *Service) StoreData(ctx context.Context, req *pb.StoreRequest) (*pb.StoreResponse, error) {
 	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -98,6 +104,7 @@ func (s *Service) StoreData(ctx context.Context, req *pb.StoreRequest) (*pb.Stor
 	}, nil
 }
 
+// RetrieveData handles requests to retrieve encrypted data records.
 func (s *Service) RetrieveData(ctx context.Context, req *pb.RetrieveRequest) (*pb.RetrieveResponse, error) {
 	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -118,6 +125,7 @@ func (s *Service) RetrieveData(ctx context.Context, req *pb.RetrieveRequest) (*p
 	return &pb.RetrieveResponse{Data: data}, nil
 }
 
+// DeleteData handles requests to delete data records (soft delete).
 func (s *Service) DeleteData(ctx context.Context, req *pb.DeleteRequest) (*pb.DeleteResponse, error) {
 	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -134,6 +142,7 @@ func (s *Service) DeleteData(ctx context.Context, req *pb.DeleteRequest) (*pb.De
 	return &pb.DeleteResponse{Success: true}, nil
 }
 
+// ListData handles requests to list user's data records.
 func (s *Service) ListData(ctx context.Context, req *pb.ListRequest) (*pb.ListResponse, error) {
 	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -148,6 +157,7 @@ func (s *Service) ListData(ctx context.Context, req *pb.ListRequest) (*pb.ListRe
 	return &pb.ListResponse{Items: items}, nil
 }
 
+// Sync handles data synchronization between client and server.
 func (s *Service) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncResponse, error) {
 	userID, err := middleware.GetUserIDFromContext(ctx)
 	if err != nil {
@@ -165,6 +175,7 @@ func (s *Service) Sync(ctx context.Context, req *pb.SyncRequest) (*pb.SyncRespon
 	}, nil
 }
 
+// Ping handles health check requests.
 func (s *Service) Ping(ctx context.Context, req *pb.PingRequest) (*pb.PingResponse, error) {
 	err := s.storage.Ping(ctx)
 	if err != nil {

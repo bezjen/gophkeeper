@@ -24,6 +24,10 @@ var (
 	buildCommit  string
 )
 
+// main is the entry point for the GophKeeper server application.
+// It initializes the database, sets up authentication and storage services,
+// creates a gRPC server with authentication middleware, and starts listening
+// for incoming connections on the specified port.
 func main() {
 	printBuildInfo()
 	port := flag.String("port", "8080", "Server port")
@@ -58,7 +62,7 @@ func main() {
 	}
 }
 
-// printBuildInfo outputs build version, date and commit information
+// printBuildInfo outputs build version, date and commit information to the log.
 func printBuildInfo() {
 	version := buildVersion
 	if version == "" {

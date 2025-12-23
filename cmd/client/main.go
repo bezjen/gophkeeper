@@ -20,6 +20,9 @@ var (
 	buildCommit  string
 )
 
+// main is the entry point for the GophKeeper client application.
+// It sets up the CLI application, handles authentication requirements,
+// and executes user commands.
 func main() {
 	app := &cli.App{
 		Name:    "gophkeeper",
@@ -97,7 +100,7 @@ func main() {
 	}
 }
 
-// printBuildInfo outputs build version, date and commit information
+// printBuildInfo outputs build version, date and commit information to the console.
 func printBuildInfo() {
 	version := buildVersion
 	if version == "" {

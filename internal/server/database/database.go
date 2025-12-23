@@ -1,3 +1,4 @@
+// Package database provides database initialization and migration functionality for GophKeeper.
 package database
 
 import (
@@ -14,6 +15,8 @@ import (
 
 const driver = "sqlite"
 
+// InitDatabase initializes the SQLite database connection and runs migrations.
+// It returns a database connection pool or an error if initialization fails.
 func InitDatabase(dsn string) (*sql.DB, error) {
 	db, err := sql.Open(driver, dsn)
 	if err != nil {
@@ -32,6 +35,7 @@ func InitDatabase(dsn string) (*sql.DB, error) {
 	return db, nil
 }
 
+// runMigrations executes database migrations from the migrations directory.
 func runMigrations(dsn string) error {
 	databaseURL := fmt.Sprintf("sqlite://%s", dsn)
 

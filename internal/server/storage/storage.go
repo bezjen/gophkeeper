@@ -1,3 +1,6 @@
+// Package storage provides data storage interfaces and implementations for the GophKeeper server.
+// It includes SQL-based storage for user data and data records with support for versioning and synchronization.
+//
 //go:generate mockery --name=UserStorage --output=../mocks --outpkg=mocks --case=underscore
 //go:generate mockery --name=DataStorage --output=../mocks --outpkg=mocks --case=underscore
 //go:generate mockery --name=Storage --output=../mocks --outpkg=mocks --case=underscore
@@ -15,34 +18,56 @@ import (
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 )
 
+// Storage is the unified interface that combines both UserStorage and DataStorage capabilities.
 type Storage interface {
 	UserStorage
 	DataStorage
 }
 
+// UserStorage defines operations for user data management.
 type UserStorage interface {
+	// CreateUser creates a new user record in the database.
 	CreateUser(ctx context.Context, user *models.User) error
+
+	// GetUserByUsername retrieves a user by their username.
 	GetUserByUsername(ctx context.Context, username string) (*models.User, error)
+
+	// GetUserByUsernameOrEmail retrieves a user by either username or email address.
 	GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*models.User, error)
 }
 
+// DataStorage defines operations for secure data record management.
 type DataStorage interface {
+	// StoreData stores or updates a data record for a specific user.
 	StoreData(ctx context.Context, userID string, data *pb.DataRecord) error
+
+	// RetrieveData retrieves a specific data record for a user.
 	RetrieveData(ctx context.Context, userID, dataID string) (*pb.DataRecord, error)
+
+	// DeleteData marks a data record as deleted (soft delete).
 	DeleteData(ctx context.Context, userID, dataID string) error
+
+	// ListData returns all data records for a user, optionally filtered by type.
 	ListData(ctx context.Context, userID string, filterType pb.DataType) ([]*pb.DataRecord, error)
+
+	// ProcessSync handles synchronization between client and server data.
 	ProcessSync(ctx context.Context, userID string, localChanges []*pb.DataRecord, lastSync int64) ([]*pb.DataRecord, error)
+
+	// Ping checks the database connection health.
 	Ping(ctx context.Context) error
 }
 
+// SQLStorage implements the Storage interface using SQL database.
 type SQLStorage struct {
 	db *sql.DB
 }
 
+// NewStorage creates a new SQLStorage instance with the provided database connection.
 func NewStorage(db *sql.DB) Storage {
 	return &SQLStorage{db: db}
 }
 
+// CreateUser implements the UserStorage interface for creating new users.
 func (s *SQLStorage) CreateUser(ctx context.Context, user *models.User) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -57,6 +82,7 @@ func (s *SQLStorage) CreateUser(ctx context.Context, user *models.User) error {
 	return err
 }
 
+// GetUserByUsername implements the UserStorage interface for retrieving users by username.
 func (s *SQLStorage) GetUserByUsername(ctx context.Context, username string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -77,6 +103,7 @@ func (s *SQLStorage) GetUserByUsername(ctx context.Context, username string) (*m
 	return &user, nil
 }
 
+// GetUserByUsernameOrEmail implements the UserStorage interface for retrieving users by username or email.
 func (s *SQLStorage) GetUserByUsernameOrEmail(ctx context.Context, username, email string) (*models.User, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -97,6 +124,7 @@ func (s *SQLStorage) GetUserByUsernameOrEmail(ctx context.Context, username, ema
 	return &user, nil
 }
 
+// StoreData implements the DataStorage interface for storing data records with version control.
 func (s *SQLStorage) StoreData(ctx context.Context, userID string, data *pb.DataRecord) error {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -148,6 +176,7 @@ func (s *SQLStorage) StoreData(ctx context.Context, userID string, data *pb.Data
 	return tx.Commit()
 }
 
+// RetrieveData implements the DataStorage interface for retrieving data records.
 func (s *SQLStorage) RetrieveData(ctx context.Context, userID, dataID string) (*pb.DataRecord, error) {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -186,6 +215,7 @@ func (s *SQLStorage) RetrieveData(ctx context.Context, userID, dataID string) (*
 	return &data, nil
 }
 
+// DeleteData implements the DataStorage interface for soft-deleting data records.
 func (s *SQLStorage) DeleteData(ctx context.Context, userID, dataID string) error {
 	ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
 	defer cancel()
@@ -218,6 +248,7 @@ func (s *SQLStorage) DeleteData(ctx context.Context, userID, dataID string) erro
 	return tx.Commit()
 }
 
+// ListData implements the DataStorage interface for listing user data records.
 func (s *SQLStorage) ListData(ctx context.Context, userID string, filterType pb.DataType) ([]*pb.DataRecord, error) {
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
@@ -275,6 +306,7 @@ func (s *SQLStorage) ListData(ctx context.Context, userID string, filterType pb.
 	return items, nil
 }
 
+// ProcessSync implements the DataStorage interface for data synchronization.
 func (s *SQLStorage) ProcessSync(ctx context.Context, userID string, localChanges []*pb.DataRecord, lastSync int64) ([]*pb.DataRecord, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()
@@ -357,6 +389,7 @@ func (s *SQLStorage) ProcessSync(ctx context.Context, userID string, localChange
 	return serverData, nil
 }
 
+// Ping implements the DataStorage interface for database health check.
 func (s *SQLStorage) Ping(ctx context.Context) error {
 	return s.db.PingContext(ctx)
 }
