@@ -54,9 +54,8 @@ message LoginResponse {
 }
 
 message SyncRequest {
-  string token = 1;
-  repeated DataRecord local_changes = 2;
-  int64 last_sync = 3;
+  repeated DataRecord local_changes = 1;
+  int64 last_sync = 2;
 }
 
 message SyncResponse {
@@ -66,8 +65,7 @@ message SyncResponse {
 }
 
 message StoreRequest {
-  string token = 1;
-  DataRecord data = 2;
+  DataRecord data = 1;
 }
 
 message StoreResponse {
@@ -76,8 +74,7 @@ message StoreResponse {
 }
 
 message RetrieveRequest {
-  string token = 1;
-  string id = 2;
+  string id = 1;
 }
 
 message RetrieveResponse {
@@ -85,8 +82,7 @@ message RetrieveResponse {
 }
 
 message DeleteRequest {
-  string token = 1;
-  string id = 2;
+  string id = 1;
 }
 
 message DeleteResponse {
@@ -94,8 +90,7 @@ message DeleteResponse {
 }
 
 message ListRequest {
-  string token = 1;
-  DataType filter_type = 2;
+  DataType filter_type = 1;
 }
 
 message ListResponse {
