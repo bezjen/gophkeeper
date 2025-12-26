@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

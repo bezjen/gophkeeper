@@ -5,9 +5,9 @@ import (
 	"testing"
 	"time"
 
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/bezjen/gophkeeper/internal/client/crypto"
 	"github.com/bezjen/gophkeeper/internal/client/models"
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )

@@ -11,7 +11,7 @@ import (
 	storage2 "github.com/bezjen/gophkeeper/internal/server/storage"
 	"time"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/google/uuid"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"

@@ -10,12 +10,12 @@ import (
 	"os"
 	"time"
 
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/bezjen/gophkeeper/internal/client/config"
 	"github.com/bezjen/gophkeeper/internal/client/crypto"
 	"github.com/bezjen/gophkeeper/internal/client/filestore"
 	"github.com/bezjen/gophkeeper/internal/client/models"
 	"github.com/bezjen/gophkeeper/internal/client/protocol"
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
 
 	"github.com/google/uuid"
 	"google.golang.org/grpc"

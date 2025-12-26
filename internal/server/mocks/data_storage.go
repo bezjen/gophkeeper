@@ -5,7 +5,7 @@ package mocks
 import (
 	context "context"
 
-	proto "github.com/bezjen/gophkeeper/pkg/proto"
+	proto "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	mock "github.com/stretchr/testify/mock"
 )
 

@@ -2,16 +2,16 @@ package client_test
 
 import (
 	"errors"
+	pbmocks "github.com/bezjen/gophkeeper/api/gophkeeper/v1/mocks"
 	"github.com/bezjen/gophkeeper/internal/client/mocks"
 	"github.com/bezjen/gophkeeper/internal/client/models"
-	pbmocks "github.com/bezjen/gophkeeper/pkg/proto/mocks"
 	"os"
 	"testing"
 	"time"
 
+	proto "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/bezjen/gophkeeper/internal/client"
 	"github.com/bezjen/gophkeeper/internal/client/config"
-	"github.com/bezjen/gophkeeper/pkg/proto"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc"

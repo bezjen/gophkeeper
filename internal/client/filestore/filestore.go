@@ -11,7 +11,7 @@ import (
 	"path/filepath"
 	"sync"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 )
 
 // StoreInterface defines the interface for local data storage operations.

@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/DATA-DOG/go-sqlmock"
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/stretchr/testify/assert"
 )
 

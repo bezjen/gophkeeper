@@ -10,7 +10,7 @@ import (
 	"testing"
 	"time"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/mock"
 	"google.golang.org/grpc/codes"
@@ -93,7 +93,7 @@ func TestService_StoreData(t *testing.T) {
 			},
 		}
 
-		mockStorage.On("StoreData", mock.Anything, "user123", mock.AnythingOfType("*proto.DataRecord")).
+		mockStorage.On("StoreData", mock.Anything, "user123", mock.AnythingOfType("*v1.DataRecord")).
 			Return(nil)
 
 		resp, err := service.StoreData(ctx, req)
@@ -120,7 +120,7 @@ func TestService_StoreData(t *testing.T) {
 			},
 		}
 
-		mockStorage.On("StoreData", mock.Anything, "user123", mock.AnythingOfType("*proto.DataRecord")).
+		mockStorage.On("StoreData", mock.Anything, "user123", mock.AnythingOfType("*v1.DataRecord")).
 			Return(nil)
 
 		resp, err := service.StoreData(ctx, req)

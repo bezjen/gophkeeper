@@ -40,7 +40,7 @@ exclude:
   paths:
     - ^internal/client/mocks
     - ^internal/server/mocks
-    - ^pkg/bar
+    - ^api
 
 # (optional; default false)
 # When true, requires all coverage-ignore annotations to include explanatory comments

@@ -16,7 +16,7 @@ import (
 	"log"
 	"time"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 )
 
 // Storage is the unified interface that combines both UserStorage and DataStorage capabilities.

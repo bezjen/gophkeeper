@@ -10,7 +10,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 )
 
 // Protocol provides methods for data type conversion, encryption, and record creation.

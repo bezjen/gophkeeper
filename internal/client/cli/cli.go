@@ -9,7 +9,7 @@ import (
 	"path/filepath"
 	"strings"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 
 	"github.com/urfave/cli/v2"
 )
@@ -235,7 +235,7 @@ func RegisterCommands(app *cli.App) {
 					return fmt.Errorf("client not initialized. Please login first")
 				}
 
-				var filterType pb.DataType = pb.DataType(-1)
+				var filterType = pb.DataType(-1)
 				if typeStr := c.String("type"); typeStr != "" {
 					proto := protocol.NewProtocol()
 					filterType = proto.StringToDataType(typeStr)

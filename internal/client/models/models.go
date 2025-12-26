@@ -2,7 +2,7 @@
 package models
 
 import (
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 )
 
 // LoginPassword represents login credential data.

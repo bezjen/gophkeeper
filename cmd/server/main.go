@@ -16,7 +16,7 @@ import (
 	"syscall"
 	"time"
 
-	pb "github.com/bezjen/gophkeeper/pkg/proto"
+	pb "github.com/bezjen/gophkeeper/api/gophkeeper/v1"
 
 	"google.golang.org/grpc"
 )
