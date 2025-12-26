@@ -20,7 +20,7 @@ func TestNewCrypto(t *testing.T) {
 		t.Fatal("NewCrypto returned nil")
 	}
 
-	key := c.GetKey()
+	key := c.getKey()
 	if len(key) != 32 {
 		t.Errorf("Expected key length 32, got %d", len(key))
 	}
@@ -276,8 +276,8 @@ func TestEncrypt_DeterministicKey(t *testing.T) {
 	c1 := NewCrypto("password", "salt")
 	c2 := NewCrypto("password", "salt")
 
-	key1 := c1.GetKey()
-	key2 := c2.GetKey()
+	key1 := c1.getKey()
+	key2 := c2.getKey()
 
 	if !bytes.Equal(key1, key2) {
 		t.Fatal("Same password and salt should produce same key")
