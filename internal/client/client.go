@@ -4,7 +4,9 @@ package client
 
 import (
 	"context"
+	"crypto/tls"
 	"fmt"
+	"google.golang.org/grpc/credentials"
 	"os"
 	"time"
 
@@ -18,7 +20,6 @@ import (
 	"github.com/google/uuid"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/credentials/insecure"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
@@ -48,8 +49,12 @@ func NewDefaultClient(serverAddr string) (*Client, error) {
 		return nil, fmt.Errorf("failed to create local storage: %w", err)
 	}
 
+	creds := credentials.NewTLS(&tls.Config{
+		MinVersion: tls.VersionTLS12,
+	})
+
 	conn, err := grpc.NewClient(serverAddr,
-		grpc.WithTransportCredentials(insecure.NewCredentials()),
+		grpc.WithTransportCredentials(creds),
 		grpc.WithDefaultCallOptions(grpc.MaxCallRecvMsgSize(1024*1024*10)),
 	)
 	if err != nil {
