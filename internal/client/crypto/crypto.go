@@ -12,6 +12,13 @@ import (
 	"golang.org/x/crypto/argon2"
 )
 
+const (
+	iterations  = uint32(2)
+	memory      = uint32(19 * 1024)
+	parallelism = uint8(1)
+	keyLength   = uint32(32)
+)
+
 // Crypto provides methods for encrypting and decrypting data using a derived key.
 type Crypto struct {
 	key []byte
@@ -19,7 +26,7 @@ type Crypto struct {
 
 // NewCrypto creates a new Crypto instance with a key derived from the provided password and salt.
 func NewCrypto(password, salt string) *Crypto {
-	key := argon2.IDKey([]byte(password), []byte(salt), 1, 64*1024, 4, 32)
+	key := argon2.IDKey([]byte(password), []byte(salt), iterations, memory, parallelism, keyLength)
 	return &Crypto{key: key}
 }
 
