@@ -13,6 +13,7 @@ import (
 	"fmt"
 	"github.com/bezjen/gophkeeper/internal/server/errors"
 	"github.com/bezjen/gophkeeper/internal/server/models"
+	"log"
 	"time"
 
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
@@ -116,7 +117,7 @@ func (s *SQLStorage) GetUserByUsernameOrEmail(ctx context.Context, username, ema
 
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, nil
+			return nil, errors.ErrNotFound
 		}
 		return nil, fmt.Errorf("failed to get user: %w", err)
 	}
@@ -150,7 +151,10 @@ func (s *SQLStorage) StoreData(ctx context.Context, userID string, data *pb.Data
 		}
 	}
 
-	metadataJSON, _ := json.Marshal(data.Metadata)
+	metadataJSON, err := json.Marshal(data.Metadata)
+	if err != nil {
+		return fmt.Errorf("failed to marshal metadata: %w", err)
+	}
 
 	query := `
 		INSERT INTO t_user_data (id, user_id, type, name, encrypted_data, metadata, version, updated_at, deleted)
@@ -209,7 +213,9 @@ func (s *SQLStorage) RetrieveData(ctx context.Context, userID, dataID string) (*
 
 	data.Deleted = deleted
 	if metadataJSON != nil {
-		json.Unmarshal(metadataJSON, &data.Metadata)
+		if err := json.Unmarshal(metadataJSON, &data.Metadata); err != nil {
+			return nil, fmt.Errorf("failed to unmarshal metadata for record %s: %w", dataID, err)
+		}
 	}
 
 	return &data, nil
@@ -285,16 +291,19 @@ func (s *SQLStorage) ListData(ctx context.Context, userID string, filterType pb.
 		var metadataJSON []byte
 		var deleted bool
 
-		err := rows.Scan(&data.Id, &data.Type, &data.Name,
+		if err := rows.Scan(&data.Id, &data.Type, &data.Name,
 			&data.EncryptedData, &metadataJSON,
-			&data.Version, &data.UpdatedAt, &deleted)
-		if err != nil {
+			&data.Version, &data.UpdatedAt, &deleted); err != nil {
+			log.Printf("Failed to scan row in ListData: %v", err)
 			continue
 		}
 
 		data.Deleted = deleted
 		if metadataJSON != nil {
-			json.Unmarshal(metadataJSON, &data.Metadata)
+			if err := json.Unmarshal(metadataJSON, &data.Metadata); err != nil {
+				log.Printf("Failed to unmarshal metadata for record %s in ListData: %v", data.Id, err)
+				data.Metadata = make(map[string]string)
+			}
 		}
 		items = append(items, &data)
 	}
@@ -318,6 +327,16 @@ func (s *SQLStorage) ProcessSync(ctx context.Context, userID string, localChange
 	defer tx.Rollback()
 
 	for _, change := range localChanges {
+		var metadataJSON []byte
+		if change.Metadata != nil {
+			var err error
+			metadataJSON, err = json.Marshal(change.Metadata)
+			if err != nil {
+				log.Printf("Failed to marshal metadata for record %s in ProcessSync: %v", change.Id, err)
+				metadataJSON = []byte("{}")
+			}
+		}
+
 		if change.Deleted {
 			_, err = tx.ExecContext(ctx, `
 				UPDATE t_user_data 
@@ -325,7 +344,6 @@ func (s *SQLStorage) ProcessSync(ctx context.Context, userID string, localChange
 				WHERE id = $2 AND user_id = $3
 			`, time.Now().Unix(), change.Id, userID)
 		} else {
-			metadataJSON, _ := json.Marshal(change.Metadata)
 			_, err = tx.ExecContext(ctx, `
 				INSERT INTO t_user_data (id, user_id, type, name, encrypted_data, metadata, version, updated_at, deleted)
 				VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
@@ -364,16 +382,19 @@ func (s *SQLStorage) ProcessSync(ctx context.Context, userID string, localChange
 		var metadataJSON []byte
 		var deleted bool
 
-		err := rows.Scan(&data.Id, &data.Type, &data.Name,
+		if err := rows.Scan(&data.Id, &data.Type, &data.Name,
 			&data.EncryptedData, &metadataJSON,
-			&data.Version, &data.UpdatedAt, &deleted)
-		if err != nil {
+			&data.Version, &data.UpdatedAt, &deleted); err != nil {
+			log.Printf("Failed to scan row in ProcessSync: %v", err)
 			continue
 		}
 
 		data.Deleted = deleted
 		if metadataJSON != nil {
-			json.Unmarshal(metadataJSON, &data.Metadata)
+			if err := json.Unmarshal(metadataJSON, &data.Metadata); err != nil {
+				log.Printf("Failed to unmarshal metadata for record %s in ProcessSync: %v", data.Id, err)
+				data.Metadata = make(map[string]string)
+			}
 		}
 		serverData = append(serverData, &data)
 	}
