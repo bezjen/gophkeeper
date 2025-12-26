@@ -110,7 +110,6 @@ func (c *Crypto) DecryptWithIV(ciphertext []byte) ([]byte, error) {
 	return plaintext, nil
 }
 
-// GetKey returns the raw encryption key (use with caution).
 func (c *Crypto) getKey() []byte {
 	return c.key
 }
