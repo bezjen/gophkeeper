@@ -2,7 +2,6 @@ package crypto
 
 import (
 	"bytes"
-	"crypto/aes"
 	"crypto/rand"
 	"io"
 	"testing"
@@ -144,82 +143,6 @@ func TestDecrypt_InvalidCiphertext(t *testing.T) {
 	_, err = c.Decrypt(randomBytes)
 	if err == nil {
 		t.Fatal("Expected error for random ciphertext")
-	}
-}
-
-func TestEncryptWithIV_DecryptWithIV(t *testing.T) {
-	c := NewCrypto(testPassword, testSalt)
-
-	testData := []byte("Test data for IV mode")
-
-	// Generate random IV
-	iv := make([]byte, aes.BlockSize)
-	io.ReadFull(rand.Reader, iv)
-
-	// Test encryption with IV
-	ciphertext, err := c.EncryptWithIV(testData, iv)
-	if err != nil {
-		t.Fatalf("EncryptWithIV failed: %v", err)
-	}
-
-	// Verify IV is prepended to ciphertext
-	if !bytes.Equal(ciphertext[:aes.BlockSize], iv) {
-		t.Fatal("IV should be prepended to ciphertext")
-	}
-
-	// Test decryption with IV
-	plaintext, err := c.DecryptWithIV(ciphertext)
-	if err != nil {
-		t.Fatalf("DecryptWithIV failed: %v", err)
-	}
-
-	if !bytes.Equal(plaintext, testData) {
-		t.Fatal("Decrypted text doesn't match original")
-	}
-}
-
-func TestEncryptWithIV_DecryptWithIV_EmptyData(t *testing.T) {
-	c := NewCrypto(testPassword, testSalt)
-
-	emptyData := []byte{}
-	iv := make([]byte, aes.BlockSize)
-	io.ReadFull(rand.Reader, iv)
-
-	ciphertext, err := c.EncryptWithIV(emptyData, iv)
-	if err != nil {
-		t.Fatalf("EncryptWithIV empty data failed: %v", err)
-	}
-
-	plaintext, err := c.DecryptWithIV(ciphertext)
-	if err != nil {
-		t.Fatalf("DecryptWithIV empty data failed: %v", err)
-	}
-
-	if !bytes.Equal(plaintext, emptyData) {
-		t.Fatal("Decrypted empty data doesn't match original")
-	}
-}
-
-func TestDecryptWithIV_InvalidCiphertext(t *testing.T) {
-	c := NewCrypto(testPassword, testSalt)
-
-	// Test with ciphertext shorter than block size
-	shortCiphertext := make([]byte, aes.BlockSize-1)
-	_, err := c.DecryptWithIV(shortCiphertext)
-	if err == nil {
-		t.Fatal("Expected error for ciphertext shorter than block size")
-	}
-
-	// Test with exactly block size (only IV, no data)
-	ivOnly := make([]byte, aes.BlockSize)
-	io.ReadFull(rand.Reader, ivOnly)
-	plaintext, err := c.DecryptWithIV(ivOnly)
-	if err != nil {
-		t.Fatalf("DecryptWithIV with only IV failed: %v", err)
-	}
-
-	if len(plaintext) != 0 {
-		t.Fatal("Expected empty plaintext when ciphertext contains only IV")
 	}
 }
 

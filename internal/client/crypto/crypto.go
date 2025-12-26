@@ -13,9 +13,10 @@ import (
 )
 
 const (
+	// https://cheatsheetseries.owasp.org/cheatsheets/Password_Storage_Cheat_Sheet.html
 	iterations  = uint32(2)
-	memory      = uint32(19 * 1024)
-	parallelism = uint8(1)
+	memory      = uint32(64 * 1024)
+	parallelism = uint8(4)
 	keyLength   = uint32(32)
 )
 
@@ -69,45 +70,6 @@ func (c *Crypto) Decrypt(ciphertext []byte) ([]byte, error) {
 
 	nonce, ciphertext := ciphertext[:nonceSize], ciphertext[nonceSize:]
 	return gcm.Open(nil, nonce, ciphertext, nil)
-}
-
-// EncryptWithIV encrypts plaintext data using AES-CFB mode with a provided initialization vector.
-func (c *Crypto) EncryptWithIV(plaintext, iv []byte) ([]byte, error) {
-	block, err := aes.NewCipher(c.key)
-	if err != nil {
-		return nil, err
-	}
-
-	stream := cipher.NewCFBEncrypter(block, iv)
-	ciphertext := make([]byte, len(plaintext))
-	stream.XORKeyStream(ciphertext, plaintext)
-
-	result := make([]byte, len(iv)+len(ciphertext))
-	copy(result[:len(iv)], iv)
-	copy(result[len(iv):], ciphertext)
-
-	return result, nil
-}
-
-// DecryptWithIV decrypts ciphertext data encrypted with EncryptWithIV method.
-func (c *Crypto) DecryptWithIV(ciphertext []byte) ([]byte, error) {
-	if len(ciphertext) < aes.BlockSize {
-		return nil, errors.New("ciphertext too short")
-	}
-
-	iv := ciphertext[:aes.BlockSize]
-	ciphertext = ciphertext[aes.BlockSize:]
-
-	block, err := aes.NewCipher(c.key)
-	if err != nil {
-		return nil, err
-	}
-
-	stream := cipher.NewCFBDecrypter(block, iv)
-	plaintext := make([]byte, len(ciphertext))
-	stream.XORKeyStream(plaintext, ciphertext)
-
-	return plaintext, nil
 }
 
 func (c *Crypto) getKey() []byte {
