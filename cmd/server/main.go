@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"flag"
 	"fmt"
 	"github.com/bezjen/gophkeeper/internal/server/auth"
@@ -10,6 +11,10 @@ import (
 	stor "github.com/bezjen/gophkeeper/internal/server/storage"
 	"log"
 	"net"
+	"os"
+	"os/signal"
+	"syscall"
+	"time"
 
 	pb "github.com/bezjen/gophkeeper/pkg/proto"
 
@@ -32,8 +37,12 @@ func main() {
 	printBuildInfo()
 	port := flag.String("port", "8080", "Server port")
 	dbDSN := flag.String("db-dsn", "gophkeeper.db", "Database DSN")
-	jwtSecret := flag.String("jwt-secret", "test-secret-key", "JWT secret key")
+	jwtSecret := flag.String("jwt-secret", "", "JWT secret key (required)")
 	flag.Parse()
+
+	if *jwtSecret == "" {
+		log.Fatal("JWT secret key is required. Use -jwt-secret flag")
+	}
 
 	db, err := database.InitDatabase(*dbDSN)
 	if err != nil {
@@ -56,9 +65,37 @@ func main() {
 		log.Fatalf("Failed to listen: %v", err)
 	}
 
-	log.Printf("Server starting on port %s", *port)
-	if err := grpcServer.Serve(lis); err != nil {
-		log.Fatalf("Failed to serve: %v", err)
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
+
+	serverErr := make(chan error, 1)
+	go func() {
+		log.Printf("Server starting on port %s", *port)
+		serverErr <- grpcServer.Serve(lis)
+	}()
+
+	select {
+	case err := <-serverErr:
+		log.Fatalf("Server failed: %v", err)
+	case <-stop:
+		log.Println("Shutting down server...")
+
+		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+		defer cancel()
+
+		stopped := make(chan struct{})
+		go func() {
+			grpcServer.GracefulStop()
+			close(stopped)
+		}()
+
+		select {
+		case <-stopped:
+			log.Println("Server stopped gracefully")
+		case <-ctx.Done():
+			log.Println("Graceful shutdown timed out, forcing stop")
+			grpcServer.Stop()
+		}
 	}
 }
 
